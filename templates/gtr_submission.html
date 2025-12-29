@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Guess The Rank Submission</title>
+
+<style>
+
+body {
+    margin: 0;
+    background: linear-gradient(135deg, #0d0d12, #000000);
+    min-height: 100vh;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.wrapper {
+    width: 100%;
+    max-width: 920px;
+    padding: 40px 20px;
+}
+
+.container {
+    padding: 40px;
+    border-radius: 22px;
+    background: rgba(18,18,24,.92);
+    border: 1px solid rgba(255,255,255,0.05);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 35px 60px rgba(0,0,0,.75);
+    animation: fadeUp .7s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+@keyframes fadeUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header */
+h1 {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #00d8ff, #8a42ff);
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.subtitle {
+    margin-top: 8px;
+    margin-bottom: 28px;
+    color: #bfbfbf;
+    font-size: 14px;
+}
+
+/* Existing notice */
+.existing {
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    display: inline-block;
+    margin-bottom: 22px;
+}
+
+/* Divider */
+.divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent);
+    margin-bottom: 25px;
+}
+
+/* Form Grid */
+form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 26px 30px;
+}
+
+.full {
+    grid-column: span 2;
+}
+
+/* Floating Label Group */
+.field {
+    position: relative;
+}
+
+.field input,
+.field textarea {
+    width: 100%;
+    background: #0a0a0f;
+    border: 1px solid #252530;
+    padding: 16px 14px 14px 14px;
+    border-radius: 12px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: border .2s, box-shadow .2s, transform .15s;
+}
+
+.field textarea {
+    min-height: 120px;
+    resize: none;
+}
+
+/* Focus effect */
+.field input:focus,
+.field textarea:focus {
+    border-color: #8a42ff;
+    box-shadow: 0 0 8px rgba(138,66,255,.45);
+    transform: translateY(-1px);
+}
+
+/* Floating label */
+.field label {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    transform: translateY(-50%);
+    color: #b2b2b8;
+    font-size: 13px;
+    pointer-events: none;
+    transition: all .18s ease;
+    background: transparent;
+}
+
+/* When typing */
+.field input:not(:placeholder-shown) + label,
+.field textarea:not(:placeholder-shown) + label,
+.field input:focus + label,
+.field textarea:focus + label {
+    top: -8px;
+    left: 10px;
+    background: #12121a;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #9d7cff;
+}
+
+/* Button */
+.actions {
+    grid-column: span 2;
+    text-align: right;
+}
+
+button {
+    padding: 13px 26px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(90deg,#8a42ff,#00d8ff);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    transition: transform .2s, box-shadow .2s, opacity .2s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(0, 216, 255, .35);
+}
+
+button:active {
+    transform: scale(.97);
+    opacity: .85;
+}
+
+/* Mobile */
+@media(max-width: 750px) {
+    form {
+        grid-template-columns: 1fr;
+    }
+    .full, .actions {
+        grid-column: span 1;
+    }
+    .actions {
+        text-align: center;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+<div class="container">
+
+    <h1>Guess The Rank</h1>
+    <div class="subtitle">Clean. Simple. Quick submission experience.</div>
+
+    {% if existing %}
+        <div class="existing">
+            You already have a submission. Updating will overwrite your previous entry.
+        </div>
+    {% endif %}
+
+    <div class="divider"></div>
+
+    <form method="POST">
+
+        <div class="field">
+            <input type="text" name="played_hero" required placeholder=" "
+                   value="{{ existing.played_hero if existing else '' }}">
+            <label>Played Hero</label>
+        </div>
+
+        <div class="field">
+            <input type="number" name="times_played" required placeholder=" "
+                   value="{{ existing.times_played_last_two_weeks if existing else '' }}">
+            <label>Times Played (last 2 weeks)</label>
+        </div>
+
+        <div class="field">
+            <input type="text" name="rank" required placeholder=" "
+                   value="{{ existing.rank if existing else '' }}">
+            <label>Player Rank</label>
+        </div>
+
+        <div class="field">
+            <input type="text" name="match_id" required placeholder=" "
+                   value="{{ existing.match_id if existing else '' }}">
+            <label>Match ID</label>
+        </div>
+
+        <div class="field">
+            <input type="date" name="match_date" required placeholder=" "
+                   value="{{ existing.match_date if existing else '' }}">
+            <label>Date of Match</label>
+        </div>
+
+        <div class="field full">
+            <textarea name="timestamps" placeholder=" ">{{ existing.timestamps if existing else '' }}</textarea>
+            <label>Interesting Timestamps (Optional)</label>
+        </div>
+
+        <div class="actions">
+            <button type="submit">
+                {% if existing %}Update Submission{% else %}Submit{% endif %}
+            </button>
+        </div>
+
+    </form>
+
+</div>
+</div>
+
+</body>
+</html>
