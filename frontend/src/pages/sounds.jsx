@@ -16,6 +16,8 @@ export function SoundLibrary() {
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [normalize, setNormalize] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
+  const [volume, setVolume] = useState(80);
+  const [boostDb, setBoostDb] = useState(0);
   const [existsStatus, setExistsStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -39,8 +41,24 @@ export function SoundLibrary() {
   const durationIntervalRef = useRef(null);
   const levelIntervalRef = useRef(null);
   const countsRef = useRef({});
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
 
   useEffect(() => {
+    // Load persisted settings
+    const saved = localStorage.getItem('wavebox.settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.volume === 'number') setVolume(parsed.volume);
+        if (typeof parsed.boostDb === 'number') setBoostDb(parsed.boostDb);
+        if (typeof parsed.normalize === 'boolean') setNormalize(parsed.normalize);
+        if (typeof parsed.autoplay === 'boolean') setAutoplay(parsed.autoplay);
+        if (typeof parsed.noiseSuppression === 'boolean') setNoiseSuppression(parsed.noiseSuppression);
+        if (typeof parsed.selectedDevice === 'string') setSelectedDevice(parsed.selectedDevice);
+      } catch {}
+    }
+
     // Check auth
     (async () => {
       try {
@@ -61,7 +79,8 @@ export function SoundLibrary() {
         const audioInputs = devices.filter(d => d.kind === 'audioinput');
         setDevices(audioInputs);
         if (audioInputs.length > 0) {
-          setSelectedDevice(audioInputs[0].deviceId);
+          const match = audioInputs.find(d => d.deviceId === selectedDevice);
+          setSelectedDevice(match ? match.deviceId : audioInputs[0].deviceId);
         }
       });
     }
@@ -120,6 +139,43 @@ export function SoundLibrary() {
     }
   };
 
+  // Persist settings
+  useEffect(() => {
+    const payload = {
+      volume,
+      boostDb,
+      normalize,
+      autoplay,
+      noiseSuppression,
+      selectedDevice,
+    };
+    localStorage.setItem('wavebox.settings', JSON.stringify(payload));
+  }, [volume, boostDb, normalize, autoplay, noiseSuppression, selectedDevice]);
+
+  // Setup gain node once
+  useEffect(() => {
+    if (!audioRef.current || gainNodeRef.current) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = ctx.createMediaElementSource(audioRef.current);
+      const gain = ctx.createGain();
+      source.connect(gain).connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      gainNodeRef.current = gain;
+    } catch (e) {
+      console.warn('AudioContext init failed', e);
+    }
+  }, []);
+
+  // Apply volume/boost to gain node
+  useEffect(() => {
+    const gain = gainNodeRef.current;
+    if (!gain) return;
+    const base = Math.max(0, Math.min(1, volume / 100));
+    const boostLinear = Math.pow(10, Math.max(0, boostDb) / 20);
+    gain.gain.value = base * boostLinear;
+  }, [volume, boostDb]);
+
   const loadStats = async () => {
     try {
       const data = await fetchStats();
@@ -165,6 +221,10 @@ export function SoundLibrary() {
     const idx = playlist.indexOf(path);
     setCurrentIndex(idx >= 0 ? idx : -1);
     setIsPlaying(true);
+
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
   };
 
   const handlePlayPause = () => {
@@ -533,7 +593,7 @@ export function SoundLibrary() {
                         <select 
                           value={selectedDevice} 
                           onChange={(e) => setSelectedDevice(e.target.value)}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#ffffff' }}
+                          style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255, 255, 255, 0.14)', color: '#ffffff', fontSize: '13px', lineHeight: '1.4' }}
                         >
                           {devices.map(d => (
                             <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>
@@ -549,6 +609,23 @@ export function SoundLibrary() {
                           />
                           Noise Suppression
                         </label>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Playback volume</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ flex: 1 }} />
+                          <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{volume}%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Volume boost (dB)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <input type="range" min="0" max="12" value={boostDb} onChange={(e) => setBoostDb(Number(e.target.value))} style={{ flex: 1 }} />
+                          <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{boostDb} dB</span>
+                        </div>
                       </div>
                     </div>
 
