@@ -105,3 +105,15 @@ export async function downloadAll() {
   }
   return res.blob();
 }
+
+export async function acceptAllPending() {
+  const res = await fetch(`${API_BASE}/accept-all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Accept-all failed');
+  }
+  return res.json();
+}

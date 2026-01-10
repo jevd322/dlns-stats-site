@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { acceptRecording, rejectRecording, downloadAccepted, downloadAll } from '../utils/api';
+import { acceptRecording, rejectRecording, downloadAccepted, downloadAll, acceptAllPending } from '../utils/api';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
 export function SoundsDev() {
@@ -59,18 +59,13 @@ export function SoundsDev() {
 
   const handleAcceptAll = async () => {
     if (!confirm('Accept all pending recordings?')) return;
-    const pending = Object.entries(uploads).filter(([_, e]) => e.status === 'pending');
-    let success = 0;
-    for (const [id, _] of pending) {
-      try {
-        await acceptRecording(id);
-        success++;
-      } catch (err) {
-        console.error('Failed to accept:', id, err);
-      }
+    try {
+      const res = await acceptAllPending();
+      showSuccess(`Accepted ${res.accepted || 0} recording(s)`);
+      loadUploads();
+    } catch (err) {
+      showError(err.message);
     }
-    showSuccess(`Accepted ${success} recording(s)`);
-    loadUploads();
   };
 
   const handleDownloadAccepted = async () => {

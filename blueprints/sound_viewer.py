@@ -501,6 +501,41 @@ def api_accept():
     log.info("✅ [Accept] Marked as accepted (no move): %s", rel)
     return jsonify({"ok": True, "entry": entry})
 
+
+@wavebox_bp.post("/api/accept-all")
+def api_accept_all():
+    """Bulk-accept all pending recordings without moving files (admin-only)."""
+    if not is_owner():
+        abort(403)
+
+    uploads = _load_upload_log()
+    changed = 0
+    accepted_ids = []
+    now_ts = int(time.time())
+
+    for uid, entry in uploads.items():
+        if entry.get("status") != "pending":
+            continue
+
+        rel = entry.get("saved_to")
+        if not rel:
+            continue
+
+        p = (RECORDED_ROOT / rel).resolve()
+        if not str(p).startswith(str(RECORDED_ROOT)) or not p.exists():
+            continue
+
+        entry["status"] = "accepted"
+        entry["accepted_at"] = now_ts
+        uploads[uid] = entry
+        changed += 1
+        accepted_ids.append(uid)
+
+    _save_upload_log(uploads)
+
+    log.info("✅ [AcceptAll] Marked %d pending recordings as accepted", changed)
+    return jsonify({"ok": True, "accepted": changed, "ids": accepted_ids})
+
 @wavebox_bp.post("/api/reject")
 def api_reject():
     """
