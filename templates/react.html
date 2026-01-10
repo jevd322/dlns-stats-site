@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wavebox • Audio Library</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1db954;
+      --primary-light: #1ed760;
+      --secondary: #00d8ff;
+      --accent: #ff006e;
+      --bg-dark: #0d0d12;
+      --bg-elevated: #161622;
+      --bg-hover: #1f1f2e;
+      --text-primary: #ffffff;
+      --text-secondary: #b2b2b8;
+      --text-muted: #7a7a82;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, #0a0015 100%);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(400px); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React scripts will be injected by Vite -->
+  {% if page == "sounds" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/sounds.js') }}"></script>
+  {% elif page == "dev" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/dev.js') }}"></script>
+  {% endif %}
+</body>
+</html>

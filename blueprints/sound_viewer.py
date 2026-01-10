@@ -264,7 +264,8 @@ def _init_cache_watcher():
 # =====================================================
 @wavebox_bp.get("/")
 def index():
-    return render_template("sounds.html")
+    # Serve React app
+    return render_template("react.html", page="sounds")
 
 @wavebox_bp.get("/api/tree")
 def api_tree():
@@ -689,13 +690,25 @@ def api_download_all():
         log.exception("[Download] Failed to create zip: %s", e)
         return jsonify({"ok": False, "error": "Failed to create zip file"}), 500
 
+@wavebox_bp.get("/api/uploads")
+def api_uploads():
+    """Fetch all uploads for the dev dashboard (admin-only)."""
+    if not is_owner():
+        abort(403)
+    uploads = _load_upload_log()
+    return jsonify({
+        "ok": True,
+        "uploads": uploads,
+        "accepted_count": len([e for e in uploads.values() if e.get("status") == "accepted"]),
+        "pending_count": len([e for e in uploads.values() if e.get("status") == "pending"]),
+    })
+
 @wavebox_bp.get("/dev")
 def dev_dashboard():
     if not is_owner():
         abort(403)
-    uploads = _load_upload_log()
-    accepted_count = len([e for e in uploads.values() if e.get("status") == "accepted"])
-    return render_template("sounds_dev.html", uploads=uploads, accepted_count=accepted_count)
+    # Serve React app
+    return render_template("react.html", page="dev")
 
 @wavebox_bp.get("/api/me")
 def api_me():

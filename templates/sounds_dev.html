@@ -292,9 +292,13 @@
 
     audio {
       width: 100%;
-      max-width: 250px;
-      height: 28px;
-      filter: invert(0.8);
+      min-width: 280px;
+      height: 40px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      padding: 4px;
+      cursor: pointer;
     }
 
     .actions-cell {
@@ -405,19 +409,28 @@
     <h2>📁 Uploaded Recordings</h2>
     <p class="subtitle">Review and manage user-submitted audio files. Only admins can access this page.</p>
 
-    {% if accepted_count > 0 %}
-      <div class="stats-banner">
-        <div class="stats-left">
-          <div>
-            <div class="stats-counter">{{ accepted_count }}</div>
-            <div class="stats-label">Accepted Recording{{ 's' if accepted_count != 1 else '' }}</div>
+    {% set pending_count = uploads | length - accepted_count %}
+    <div style="display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; align-items: center;">
+      {% if accepted_count > 0 %}
+        <div class="stats-banner" style="flex: 1; min-width: 250px; margin-bottom: 0;">
+          <div class="stats-left">
+            <div>
+              <div class="stats-counter">{{ accepted_count }}</div>
+              <div class="stats-label">Accepted Recording{{ 's' if accepted_count != 1 else '' }}</div>
+            </div>
           </div>
+          <button class="btn primary" id="downloadBtn" onclick="showDownloadOptions()" style="margin-left: auto;">
+            📥 Download as ZIP
+          </button>
         </div>
-        <button class="btn primary" id="downloadBtn" onclick="showDownloadOptions()">
-          📥 Download as ZIP
+      {% endif %}
+
+      {% if pending_count > 0 %}
+        <button class="btn primary" onclick="acceptAllPending()" style="white-space: nowrap; padding: 12px 20px; height: fit-content;">
+          ✅ Accept All ({{ pending_count }})
         </button>
-      </div>
-    {% endif %}
+      {% endif %}
+    </div>
 
     {% if uploads %}
       <div class="table-wrapper">
@@ -428,7 +441,6 @@
               <th>File</th>
               <th>Path</th>
               <th>Status</th>
-              <th>Preview</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -459,12 +471,6 @@
               </td>
 
               <td>
-                <audio controls preload="none">
-                  <source src="{{ url_for('wavebox.recorded_media', relpath=entry.saved_to) }}" type="audio/mpeg">
-                </audio>
-              </td>
-
-              <td>
                 <div class="actions-cell">
                   {% if entry.status == 'pending' %}
                     <button class="btn primary small" onclick="acceptUpload('{{ uid }}')">✅ Accept</button>
@@ -482,16 +488,27 @@
         </table>
       </div>
 
-      {% if uploads | length > 1 %}
-        <div style="margin-top: 20px; padding: 16px; background: rgba(29, 185, 84, 0.05); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 14px; color: var(--text-muted);">
-            <strong>{{ uploads | length }}</strong> total uploads
-          </span>
-          <button class="btn primary" onclick="acceptAllPending()">
-            ✅ Accept All Pending
-          </button>
+      <!-- Audio Player Section -->
+      <div style="margin-top: 28px;">
+        <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--text-muted);">📻 Audio Previews</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+          {% for uid, entry in uploads.items()|sort(reverse=True) %}
+            <div style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+              <div style="margin-bottom: 12px;">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">{{ entry.path }}</div>
+                <strong style="font-size: 14px; word-break: break-word;">{{ entry.filename }}</strong>
+              </div>
+              <audio controls preload="metadata" style="width: 100%; margin-bottom: 8px;">
+                <source src="{{ url_for('wavebox.recorded_media', relpath=entry.saved_to) }}" type="audio/mpeg">
+              </audio>
+              <div style="font-size: 12px; color: var(--text-muted); padding-top: 8px; border-top: 1px solid var(--border);">
+                <span class="badge {{ entry.status }}" style="margin-right: 8px;">{{ entry.status|capitalize }}</span>
+                by <strong>{{ entry.user.username or entry.user.name if entry.user else 'Unknown' }}</strong>
+              </div>
+            </div>
+          {% endfor %}
         </div>
-      {% endif %}
+      </div>
     {% else %}
       <div class="table-wrapper">
         <div class="empty-state">
