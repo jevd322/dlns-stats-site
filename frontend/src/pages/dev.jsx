@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { acceptRecording, rejectRecording, downloadAccepted, downloadAll } from '../utils/api';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
@@ -7,6 +7,11 @@ export function SoundsDev() {
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [textFilter, setTextFilter] = useState('');
+  const [pathFilter, setPathFilter] = useState('');
+  const audioRef = useRef(null);
+  const [previewing, setPreviewing] = useState(null);
 
   useEffect(() => {
     loadUploads();
@@ -132,6 +137,30 @@ export function SoundsDev() {
   const uploadEntries = Object.entries(uploads);
   const totalUploads = uploadEntries.length;
 
+  const filteredEntries = useMemo(() => {
+    return uploadEntries.filter(([_, entry]) => {
+      if (statusFilter !== 'all' && entry.status !== statusFilter) return false;
+      if (textFilter) {
+        const t = textFilter.toLowerCase();
+        if (!entry.filename.toLowerCase().includes(t) && !(entry.path || '').toLowerCase().includes(t)) return false;
+      }
+      if (pathFilter) {
+        const p = pathFilter.toLowerCase();
+        if (!(entry.path || '').toLowerCase().startsWith(p)) return false;
+      }
+      return true;
+    });
+  }, [uploadEntries, statusFilter, textFilter, pathFilter]);
+
+  const handlePreview = (entry) => {
+    const url = `/sounds/recorded/${entry.saved_to}`;
+    if (audioRef.current) {
+      audioRef.current.src = url;
+      audioRef.current.play().catch(() => {});
+      setPreviewing(entry);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#121212', color: '#ffffff' }}>
       {/* Header */}
@@ -246,6 +275,40 @@ export function SoundsDev() {
           </div>
         </div>
 
+        {/* Filters */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <input
+            placeholder="Filter by filename or path"
+            value={textFilter}
+            onChange={(e) => setTextFilter(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #282828', background: '#1b1b1b', color: '#fff' }}
+          />
+          <input
+            placeholder="Path prefix (e.g. vo/astro)"
+            value={pathFilter}
+            onChange={(e) => setPathFilter(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #282828', background: '#1b1b1b', color: '#fff' }}
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #282828', background: '#1b1b1b', color: '#fff' }}
+          >
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        {/* Preview player */}
+        <div style={{ background: '#1e1e1e', border: '1px solid #282828', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+          <div style={{ color: '#b3b3b3', fontSize: '13px' }}>
+            {previewing ? `Previewing: ${previewing.filename} (${previewing.path})` : 'Select a row to preview'}
+          </div>
+          <audio ref={audioRef} controls style={{ width: '320px' }} />
+        </div>
+
         {/* Table */}
         {totalUploads === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: '#b3b3b3' }}>
@@ -331,7 +394,7 @@ export function SoundsDev() {
                 </tr>
               </thead>
               <tbody>
-                {uploadEntries.map(([id, entry]) => (
+                {filteredEntries.map(([id, entry]) => (
                   <tr
                     key={id}
                     style={{
@@ -351,17 +414,12 @@ export function SoundsDev() {
                   >
                     <td style={{ padding: '16px', borderBottom: '1px solid #282828' }}>
                       <div style={{ fontWeight: 600 }}>{entry.filename}</div>
-                      <audio src={`/sounds/recorded/${entry.saved_to}`} controls style={{
-                        width: '100%',
-                        minWidth: '280px',
-                        height: '40px',
-                        borderRadius: '6px',
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        border: '1px solid #282828',
-                        padding: '4px',
-                        cursor: 'pointer',
-                        marginTop: '8px',
-                      }} />
+                      <button
+                        onClick={() => handlePreview(entry)}
+                        style={{ marginTop: '8px', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid #282828', color: '#fff', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ▶ Preview
+                      </button>
                     </td>
                     <td style={{ padding: '16px', borderBottom: '1px solid #282828' }}>
                       <div style={{ fontSize: '12px', color: '#b3b3b3' }}>{entry.path}</div>
