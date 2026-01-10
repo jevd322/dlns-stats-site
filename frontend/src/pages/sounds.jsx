@@ -43,6 +43,7 @@ export function SoundLibrary() {
   const countsRef = useRef({});
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const recordedUrlRef = useRef(null);
 
   useEffect(() => {
     // Load persisted settings
@@ -100,7 +101,12 @@ export function SoundLibrary() {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (recordedUrlRef.current) {
+        URL.revokeObjectURL(recordedUrlRef.current);
+      }
+    };
   }, []);
 
   const loadLibrary = async () => {
@@ -295,6 +301,10 @@ export function SoundLibrary() {
 
       recorder.onstop = () => {
         const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+        if (recordedUrlRef.current) {
+          URL.revokeObjectURL(recordedUrlRef.current);
+        }
+        recordedUrlRef.current = URL.createObjectURL(blob);
         setRecordedBlob(blob);
         setRecordSize(formatBytes(blob.size));
         clearInterval(durationIntervalRef.current);
@@ -343,20 +353,19 @@ export function SoundLibrary() {
   };
 
   const playRecorded = () => {
-    if (recordedBlob) {
-      const url = URL.createObjectURL(recordedBlob);
-      if (audioRef.current) {
-        audioRef.current.src = url;
-        audioRef.current.play();
-      }
+    if (recordedUrlRef.current && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.src = recordedUrlRef.current;
+      audioRef.current.play().catch(err => {
+        showError('Failed to play recording: ' + err.message);
+      });
     }
   };
 
   const downloadRecorded = () => {
-    if (recordedBlob) {
-      const url = URL.createObjectURL(recordedBlob);
+    if (recordedUrlRef.current && recordedBlob) {
       const a = document.createElement('a');
-      a.href = url;
+      a.href = recordedUrlRef.current;
       a.download = `recording_${Date.now()}.webm`;
       a.click();
       showSuccess('Download started');
