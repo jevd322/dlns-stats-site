@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 
-export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAutoplayChange, normalize, autoplay }) {
+export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAutoplayChange, normalize, autoplay, volume, boostDb, onVolumeChange, onBoostChange }) {
   const [search, setSearch] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
@@ -138,30 +138,57 @@ export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAu
               </button>
             )}
 
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#ffffff',
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = 'rgba(255, 255, 255, 0.12)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'rgba(255, 255, 255, 0.08)';
-              }}
-            >
-              ⚙️
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: '#ffffff',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'rgba(255, 255, 255, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'rgba(255, 255, 255, 0.08)';
+                }}
+              >
+                ⚙️
+              </button>
+
+              {showSettings && (
+                <div style={{ position: 'absolute', right: 0, top: '48px', width: '240px', background: 'rgba(12,12,18,0.95)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', padding: '14px', boxShadow: '0 12px 40px rgba(0,0,0,0.35)', zIndex: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontWeight: 700, color: '#ffffff', fontSize: '13px' }}>Playback</span>
+                    <button onClick={() => setShowSettings(false)} style={{ background: 'transparent', border: 'none', color: '#7a7a82', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                  </div>
+
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '12px', color: '#b2b2b8', marginBottom: '6px', fontWeight: 600 }}>Volume</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input type="range" min="0" max="100" value={volume} onChange={(e) => onVolumeChange && onVolumeChange(Number(e.target.value))} style={{ flex: 1 }} />
+                      <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '40px', textAlign: 'right' }}>{volume}%</span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: '4px' }}>
+                    <div style={{ fontSize: '12px', color: '#b2b2b8', marginBottom: '6px', fontWeight: 600 }}>Boost</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <input type="range" min="0" max="12" value={boostDb} onChange={(e) => onBoostChange && onBoostChange(Number(e.target.value))} style={{ flex: 1 }} />
+                      <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '40px', textAlign: 'right' }}>{boostDb} dB</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

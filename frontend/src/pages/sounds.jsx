@@ -487,6 +487,10 @@ export function SoundLibrary() {
         onAutoplayChange={setAutoplay}
         normalize={normalize}
         autoplay={autoplay}
+        volume={volume}
+        boostDb={boostDb}
+        onVolumeChange={setVolume}
+        onBoostChange={setBoostDb}
       />
 
       <main className="wrap mainwrap" style={{ maxWidth: '1680px', margin: '0 auto', padding: '20px' }}>
