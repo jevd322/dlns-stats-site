@@ -40,7 +40,9 @@ export async function checkExists(path) {
 
 export async function uploadRecording(file, path) {
   const formData = new FormData();
-  formData.append('file', file);
+  // Ensure the backend sees a valid audio extension; default to webm if unnamed
+  const filename = (file && file.name) ? file.name : 'recording.webm';
+  formData.append('file', file, filename);
   formData.append('path', path);
   const res = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
