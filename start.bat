@@ -43,6 +43,8 @@ echo ========================================
 echo   Flask is running at http://localhost:5050
 echo   Sounds pages: http://localhost:5050/sounds
 echo   Dev dashboard: http://localhost:5050/sounds/dev
+echo   Rank page: http://localhost:5050/rank
+echo   Rank admin: http://localhost:5050/rank/dev
 echo ========================================
 echo.
 

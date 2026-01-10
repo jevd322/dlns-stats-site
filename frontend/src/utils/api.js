@@ -117,3 +117,50 @@ export async function acceptAllPending() {
   }
   return res.json();
 }
+
+/**
+ * Ranker API
+ */
+const RANK_API_BASE = '/rank/api';
+
+export async function rankGetMe() {
+  const res = await fetch(`${RANK_API_BASE}/me`);
+  if (!res.ok) throw new Error('Failed to fetch me');
+  return res.json();
+}
+
+export async function rankSubmit(rank) {
+  const res = await fetch(`${RANK_API_BASE}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rank }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to submit rank');
+  return data;
+}
+
+export async function rankListPlayers() {
+  const res = await fetch(`${RANK_API_BASE}/players`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to load players');
+  return data;
+}
+
+export async function rankAssignTeam(id, team) {
+  const res = await fetch(`${RANK_API_BASE}/assign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, team }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to assign team');
+  return data;
+}
+
+export async function rankClearAll() {
+  const res = await fetch(`${RANK_API_BASE}/clear`, { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to clear');
+  return data;
+}

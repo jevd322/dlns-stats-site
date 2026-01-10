@@ -31,6 +31,7 @@ from blueprints.sound_viewer import wavebox_bp
 from blueprints.filehub import filehub_bp
 from blueprints.vdata import vdata_editor_bp
 from blueprints.submission_bp import submission_bp
+from blueprints.ranker import ranker_bp
 
 
 def create_app() -> Flask:
@@ -114,6 +115,7 @@ def create_app() -> Flask:
     app.register_blueprint(filehub_bp)
     app.register_blueprint(vdata_editor_bp)
     app.register_blueprint(submission_bp)
+    app.register_blueprint(ranker_bp)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

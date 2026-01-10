@@ -62,6 +62,10 @@
     <script type="module" src="{{ url_for('static', filename='react-app/sounds.js') }}"></script>
   {% elif page == "dev" %}
     <script type="module" src="{{ url_for('static', filename='react-app/dev.js') }}"></script>
+  {% elif page == "rank" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/rank.js') }}"></script>
+  {% elif page == "rank_admin" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/rank_admin.js') }}"></script>
   {% endif %}
 </body>
 </html>

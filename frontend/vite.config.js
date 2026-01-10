@@ -11,6 +11,8 @@ export default defineConfig({
       input: {
         sounds: path.resolve(__dirname, 'src/pages/sounds.entry.jsx'),
         dev: path.resolve(__dirname, 'src/pages/dev.entry.jsx'),
+        rank: path.resolve(__dirname, 'src/pages/rank.entry.jsx'),
+        rank_admin: path.resolve(__dirname, 'src/pages/rank_admin.entry.jsx'),
       },
       output: {
         entryFileNames: '[name].js',
@@ -22,6 +24,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/sounds': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/rank': {
         target: 'http://localhost:5000',
         changeOrigin: true,
       },
