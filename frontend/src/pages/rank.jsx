@@ -19,7 +19,11 @@ function Badge({ children, color = '#1db954' }) {
 
 export function RankApp() {
   const [me, setMe] = useState(null);
-  const [rank, setRank] = useState('');
+  const RANK_OPTIONS = [
+    'Initiate','Seeker','Alchemist','Arcanist','Ritualist','Emissary','Archon','Oracle','Phantom','Ascendant','Eternus','Obscurus'
+  ];
+  const [rankMain, setRankMain] = useState('');
+  const [rankLevel, setRankLevel] = useState(1);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +35,23 @@ export function RankApp() {
     try {
       const data = await rankGetMe();
       setMe(data);
-      setRank(data.rank || '');
+      const existing = (data.rank || '').trim();
+      if (existing) {
+        // Try to parse existing into main + level
+        const match = RANK_OPTIONS.find(opt => existing.toLowerCase().startsWith(opt.toLowerCase()));
+        if (match) {
+          setRankMain(match);
+          const rest = existing.slice(match.length).trim();
+          const lvl = parseInt(rest, 10);
+          setRankLevel(Number.isFinite(lvl) && lvl >= 1 && lvl <= 6 ? lvl : 1);
+        } else {
+          setRankMain('');
+          setRankLevel(1);
+        }
+      } else {
+        setRankMain('');
+        setRankLevel(1);
+      }
     } catch (e) {
       setError(e.message || 'Failed to load');
     } finally {
@@ -47,7 +67,10 @@ export function RankApp() {
     setError('');
     setSuccess('');
     try {
-      await rankSubmit(rank.trim());
+      if (!rankMain) throw new Error('Please select a rank');
+      const level = Math.min(6, Math.max(1, Number(rankLevel) || 1));
+      const payload = `${rankMain} ${level}`;
+      await rankSubmit(payload);
       setSuccess('Rank submitted');
       await load();
     } catch (e) {
@@ -82,15 +105,33 @@ export function RankApp() {
 
         {me && (
           <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: 16 }}>
-            <p style={{ marginBottom: 12, color: '#b3b3b3' }}>Submit your current rank. Admins will sort players into teams.</p>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <input
-                type="text"
-                placeholder="e.g. Gold 3, Diamond, 2200 MMR"
-                value={rank}
-                onChange={(e) => setRank(e.target.value)}
+            <p style={{ marginBottom: 12, color: '#b3b3b3' }}>Submit your current rank. Choose a main rank and level from 1–6.</p>
+            <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 12, alignItems: 'center' }}>
+              <select
+                value={rankMain}
+                onChange={(e) => setRankMain(e.target.value)}
                 style={{
-                  flex: 1,
+                  width: '100%',
+                  background: '#181818',
+                  border: '1px solid #333',
+                  color: '#fff',
+                  borderRadius: 6,
+                  padding: '10px 12px',
+                }}
+              >
+                <option value="">Select rank…</option>
+                {RANK_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={1}
+                max={6}
+                value={rankLevel}
+                onChange={(e) => setRankLevel(Number(e.target.value))}
+                style={{
+                  width: '100%',
                   background: '#181818',
                   border: '1px solid #333',
                   color: '#fff',
@@ -100,15 +141,15 @@ export function RankApp() {
               />
               <button
                 type="submit"
-                disabled={submitting || !rank.trim()}
+                disabled={submitting || !rankMain}
                 style={{
-                  background: rank.trim() ? 'linear-gradient(90deg, #1db954, #1ed760)' : 'rgba(255,255,255,0.08)',
+                  background: rankMain ? 'linear-gradient(90deg, #1db954, #1ed760)' : 'rgba(255,255,255,0.08)',
                   border: 'none',
-                  color: rank.trim() ? '#000' : '#b3b3b3',
+                  color: rankMain ? '#000' : '#b3b3b3',
                   padding: '10px 18px',
                   borderRadius: 6,
                   fontWeight: 600,
-                  cursor: rank.trim() ? 'pointer' : 'not-allowed',
+                  cursor: rankMain ? 'pointer' : 'not-allowed',
                 }}
               >Submit</button>
             </form>
