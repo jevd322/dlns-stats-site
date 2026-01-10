@@ -12,8 +12,8 @@ ranker_bp = Blueprint("ranker", __name__, url_prefix="/rank")
 
 # Storage files
 DATA_DIR = Path("data").resolve()
-SUBMISSIONS_FILE = DATA_DIR / "rank_submissions.json"  # { discord_id: { rank: str, submitted_at: int } }
-TEAMS_FILE = DATA_DIR / "team_assignments.json"        # { discord_id: 0|1 }
+SUBMISSIONS_FILE = DATA_DIR / "rank_submission.json"  # { discord_id: { rank: str, submitted_at: int } }
+TEAMS_FILE = DATA_DIR / "team_assignment.json"        # { discord_id: 0|1 }
 """
 Hardcoded admin list for Ranker dev panel. Add Discord user IDs here.
 """

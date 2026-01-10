@@ -62,3 +62,5 @@ data/filehub/
 
 # Unneeded Data Files
 data/guesstherank.json
+data/rank_submission.json
+data/team_assignment.json
