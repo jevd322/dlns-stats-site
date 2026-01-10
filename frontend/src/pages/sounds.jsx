@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from '../components/Header';
-import { fetchTree, fetchStats, fetchRandom, getMe } from '../utils/api';
+import { fetchTree, fetchStats, fetchRandom, getMe, checkExists, uploadRecording } from '../utils/api';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
 export function SoundLibrary() {
@@ -16,6 +16,10 @@ export function SoundLibrary() {
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [normalize, setNormalize] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
+  const [targetPath, setTargetPath] = useState('');
+  const [existsStatus, setExistsStatus] = useState(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -300,6 +304,60 @@ export function SoundLibrary() {
     }
   };
 
+  const handleCheckExists = async () => {
+    const path = targetPath.trim();
+    if (!path) {
+      showError('Enter a target path (e.g. vo/astro/line_01.mp3)');
+      return;
+    }
+    try {
+      setIsChecking(true);
+      const res = await checkExists(path);
+      setExistsStatus(res);
+      if (!res.ok) {
+        showError(res.error || 'Failed to check status');
+      }
+    } catch (err) {
+      showError('Failed to check status');
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const handleUploadRecording = async () => {
+    const path = targetPath.trim();
+    if (!recordedBlob) {
+      showError('Record something first');
+      return;
+    }
+    if (!path) {
+      showError('Enter a target path (e.g. vo/astro/line_01.mp3)');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+
+      // Re-check to prevent duplicates
+      const status = await checkExists(path);
+      setExistsStatus(status);
+      if (status.ok && status.exists) {
+        showError(`Already ${status.status || 'present'} at ${status.path}`);
+        return;
+      }
+
+      await uploadRecording(recordedBlob, path);
+      showSuccess('Upload submitted');
+      // Refresh status to pending
+      const updated = await checkExists(path);
+      setExistsStatus(updated);
+    } catch (err) {
+      showError(err.message || 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -372,8 +430,8 @@ export function SoundLibrary() {
         autoplay={autoplay}
       />
 
-      <main className="wrap mainwrap" style={{ maxWidth: '1600px', margin: '0 auto', padding: '20px' }}>
-        <section className="shell" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '20px', height: 'calc(100vh - 200px)' }}>
+      <main className="wrap mainwrap" style={{ maxWidth: '1680px', margin: '0 auto', padding: '20px' }}>
+        <section className="shell" style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '20px', height: 'calc(100vh - 200px)' }}>
           {/* Sidebar */}
           <aside className="sidebar" style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '24px', overflowY: 'auto', backdropFilter: 'blur(10px)' }}>
             <div className="side-head" style={{ marginBottom: '20px' }}>
@@ -384,7 +442,7 @@ export function SoundLibrary() {
                 <span>{stats.files}</span> files · <span>{stats.folders}</span> folders
               </div>
             </div>
-            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '60vh', overflowY: 'auto' }}>
+            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '68vh', overflowY: 'auto' }}>
               {renderTree({ ...tree, type: 'dir', name: 'sounds', path: '' })}
             </nav>
 
@@ -525,6 +583,45 @@ export function SoundLibrary() {
                         💾 Save
                       </button>
                     </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', alignItems: 'end', marginBottom: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Target path (e.g. vo/astro/line_01.mp3)</label>
+                        <input
+                          value={targetPath}
+                          onChange={(e) => setTargetPath(e.target.value)}
+                          placeholder="vo/astro/line_01.mp3"
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#ffffff' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={handleCheckExists}
+                          disabled={isChecking}
+                          style={{ flex: 1, background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#ffffff', borderRadius: '10px', padding: '12px 12px', fontWeight: 600, cursor: isChecking ? 'not-allowed' : 'pointer', fontSize: '14px' }}
+                        >
+                          {isChecking ? 'Checking...' : 'Check status'}
+                        </button>
+                        <button
+                          onClick={handleUploadRecording}
+                          disabled={isUploading}
+                          style={{ flex: 1, background: 'linear-gradient(90deg, #1db954, #1ed760)', border: 'none', color: '#000', borderRadius: '10px', padding: '12px 12px', fontWeight: 700, cursor: isUploading ? 'not-allowed' : 'pointer', fontSize: '14px' }}
+                        >
+                          {isUploading ? 'Submitting...' : 'Submit recording'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {existsStatus && (
+                      <div style={{ marginBottom: '12px', fontSize: '13px', color: '#b2b2b8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ height: '10px', width: '10px', borderRadius: '50%', background: existsStatus.exists ? (existsStatus.status === 'accepted' ? '#1db954' : '#f5a524') : '#7a7a82', display: 'inline-block' }}></span>
+                        <span>
+                          {existsStatus.exists
+                            ? `Already ${existsStatus.status || 'pending'} at ${existsStatus.path || targetPath}`
+                            : `Available • ${targetPath || existsStatus.path || ''}`}
+                        </span>
+                      </div>
+                    )}
 
                     <div style={{ margin: '16px 0' }}>
                       <label style={{ fontSize: '11px', color: '#7a7a82', display: 'block', marginBottom: '8px' }}>Audio Level</label>
