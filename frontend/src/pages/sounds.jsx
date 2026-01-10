@@ -35,6 +35,7 @@ export function SoundLibrary() {
   const startTimeRef = useRef(0);
   const durationIntervalRef = useRef(null);
   const levelIntervalRef = useRef(null);
+  const countsRef = useRef({});
 
   useEffect(() => {
     // Check auth
@@ -89,6 +90,28 @@ export function SoundLibrary() {
       const initialExpanded = new Set();
       initialExpanded.add('');
       setExpanded(initialExpanded);
+
+      // Build counts map for folders for clearer hierarchy display
+      const countsMap = {};
+      const buildCounts = (node) => {
+        if (!node || !node.children) return { files: 0, folders: 0 };
+        let files = 0, folders = 0;
+        for (const child of node.children) {
+          if (child.type === 'file') {
+            files += 1;
+          } else if (child.type === 'dir' || child.children) {
+            folders += 1;
+            const c = buildCounts(child);
+            files += c.files;
+            folders += c.folders;
+          }
+        }
+        const key = node.path || '';
+        countsMap[key] = { files, folders };
+        return { files, folders };
+      };
+      buildCounts(data);
+      countsRef.current = countsMap;
     } catch (err) {
       showError('Failed to load library');
     }
@@ -299,11 +322,12 @@ export function SoundLibrary() {
         <div
           key={node.path}
           className="tree-item"
-          style={{ paddingLeft: `${depth * 12 + 24}px`, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: '#b2b2b8', border: '1px solid transparent' }}
+          style={{ paddingLeft: `${depth * 16 + 28}px`, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: '#b2b2b8', border: '1px solid transparent', position: 'relative' }}
           onClick={() => playFile(node.path)}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#ffffff'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#b2b2b8'; }}
         >
+          <span style={{ position: 'absolute', left: `${depth * 16 + 16}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
           🎵 {node.name}
         </div>
       );
@@ -311,17 +335,28 @@ export function SoundLibrary() {
 
     const pathKey = node.path || '';
     const isOpen = expanded.has(pathKey);
+    const counts = countsRef.current[pathKey] || { files: 0, folders: 0 };
     return (
       <div key={pathKey || 'root'}>
         <div
           className="tree-item tree-folder"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 12 + 12}px`, padding: '8px 12px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 16 + 12}px`, padding: '8px 12px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none', position: 'relative', borderRadius: '8px' }}
           onClick={() => toggleFolder(pathKey)}
         >
-          <span style={{ display: 'inline-block', width: '14px', textAlign: 'center' }}>{isOpen ? '▼' : '▶'}</span>
-          📁 {node.name}
+          <span style={{ position: 'absolute', left: `${depth * 16}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
+          <span style={{ display: 'inline-block', width: '14px', textAlign: 'center', color: isOpen ? '#1db954' : '#b2b2b8' }}>{isOpen ? '▼' : '▶'}</span>
+          <span role="img" aria-label="folder">📁</span>
+          <span style={{ color: '#ffffff' }}>{node.name}</span>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+            <span style={{ fontSize: '11px', color: '#7a7a82', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '999px' }}>{counts.folders} folders</span>
+            <span style={{ fontSize: '11px', color: '#7a7a82', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '999px' }}>{counts.files} files</span>
+          </span>
         </div>
-        {isOpen && node.children && node.children.map(child => renderTree(child, depth + 1))}
+        {isOpen && node.children && (
+          <div>
+            {node.children.map(child => renderTree(child, depth + 1))}
+          </div>
+        )}
       </div>
     );
   };
