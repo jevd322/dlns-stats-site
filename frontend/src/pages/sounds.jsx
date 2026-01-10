@@ -7,6 +7,7 @@ export function SoundLibrary() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [recordPanelVisible, setRecordPanelVisible] = useState(false);
   const [tree, setTree] = useState({ children: [] });
+  const [expanded, setExpanded] = useState(() => new Set());
   const [stats, setStats] = useState({ files: 0, folders: 0 });
   const [nowPlaying, setNowPlaying] = useState({ title: 'Nothing playing', path: '—' });
   const [playlist, setPlaylist] = useState([]);
@@ -84,6 +85,10 @@ export function SoundLibrary() {
       const data = await fetchTree();
       setTree(data);
       extractPlaylist(data);
+      // Collapse all by default; expand only root level on first load
+      const initialExpanded = new Set();
+      initialExpanded.add('');
+      setExpanded(initialExpanded);
     } catch (err) {
       showError('Failed to load library');
     }
@@ -280,31 +285,43 @@ export function SoundLibrary() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const toggleFolder = (path) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  };
+
   const renderTree = (node, depth = 0) => {
     if (node.type === 'file') {
       return (
         <div
           key={node.path}
           className="tree-item"
-          style={{ paddingLeft: `${depth * 12 + 12}px`, padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '14px', color: '#b2b2b8', border: '1px solid transparent' }}
+          style={{ paddingLeft: `${depth * 12 + 24}px`, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: '#b2b2b8', border: '1px solid transparent' }}
           onClick={() => playFile(node.path)}
-          onMouseEnter={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.08)'; e.target.style.color = '#ffffff'; }}
-          onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#b2b2b8'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#ffffff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#b2b2b8'; }}
         >
           🎵 {node.name}
         </div>
       );
     }
 
+    const pathKey = node.path || '';
+    const isOpen = expanded.has(pathKey);
     return (
-      <div key={node.path || 'root'}>
+      <div key={pathKey || 'root'}>
         <div
           className="tree-item tree-folder"
-          style={{ paddingLeft: `${depth * 12 + 12}px`, padding: '10px 12px', fontSize: '14px', color: '#b2b2b8', fontWeight: 600 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 12 + 12}px`, padding: '8px 12px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}
+          onClick={() => toggleFolder(pathKey)}
         >
+          <span style={{ display: 'inline-block', width: '14px', textAlign: 'center' }}>{isOpen ? '▼' : '▶'}</span>
           📁 {node.name}
         </div>
-        {node.children && node.children.map(child => renderTree(child, depth + 1))}
+        {isOpen && node.children && node.children.map(child => renderTree(child, depth + 1))}
       </div>
     );
   };
@@ -332,8 +349,8 @@ export function SoundLibrary() {
                 <span>{stats.files}</span> files · <span>{stats.folders}</span> folders
               </div>
             </div>
-            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto' }}>
-              {tree.children && tree.children.map(child => renderTree(child))}
+            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '60vh', overflowY: 'auto' }}>
+              {renderTree({ ...tree, type: 'dir', name: 'sounds', path: '' })}
             </nav>
 
             {isAuthenticated && (
