@@ -1,6 +1,6 @@
 # ruff: noqa
 from __future__ import annotations
-import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading, shutil
+import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading, shutil, io, zipfile
 from pathlib import Path
 from flask import (
     Blueprint, jsonify, send_file, abort, render_template,
@@ -24,6 +24,13 @@ TRANSCODE_BITRATE = "96k"
 RESAMPLE_HZ = 48000
 CACHE_TTL = 12 * 3600
 ALLOWED_EXTS = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"}
+
+# Admin user IDs (easy to add more)
+ADMIN_USER_IDS = [
+    "281950593436614656",
+    "285203317162770442",
+    "950380630905069578"
+]
 
 # =====================================================
 # ---------------- LOGGING ----------------
@@ -369,7 +376,7 @@ def is_owner():
     if not user:
         return False
     uid = str(user.get("id") if isinstance(user, dict) else getattr(user, "id", None))
-    return uid == str(current_app.config.get("DISCORD_OWNER_ID", "")) or uid == "281950593436614656"
+    return uid in ADMIN_USER_IDS
 
 @wavebox_bp.post("/api/upload")
 def api_upload():
@@ -589,12 +596,106 @@ def api_exists():
 # =====================================================
 # ---------------- DEV DASHBOARD + USER ----------------
 # =====================================================
+@wavebox_bp.get("/api/download-accepted")
+def api_download_accepted():
+    """
+    Download all accepted recordings as a zip file.
+    Admin-only endpoint.
+    """
+    if not is_owner():
+        abort(403)
+    
+    uploads = _load_upload_log()
+    accepted = [e for e in uploads.values() if e.get("status") == "accepted"]
+    
+    if not accepted:
+        return jsonify({"ok": False, "error": "No accepted recordings"}), 404
+    
+    # Create in-memory zip file
+    zip_buffer = io.BytesIO()
+    try:
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for entry in accepted:
+                rel = entry.get("saved_to")
+                if not rel:
+                    continue
+                
+                p = (RECORDED_ROOT / rel).resolve()
+                
+                # Security check - prevent directory traversal
+                if not str(p).startswith(str(RECORDED_ROOT)) or not p.exists():
+                    log.warning("[Download] Skipping invalid/missing path: %s", rel)
+                    continue
+                
+                # Add file to zip using the original path as the archive name
+                zf.write(p, arcname=rel)
+        
+        zip_buffer.seek(0)
+        log.info("✅ [Download] Created zip with %d accepted recordings", len(accepted))
+        
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"submitted_sounds_{int(time.time())}.zip"
+        )
+    except Exception as e:
+        log.exception("[Download] Failed to create zip: %s", e)
+        return jsonify({"ok": False, "error": "Failed to create zip file"}), 500
+
+@wavebox_bp.get("/api/download-all")
+def api_download_all():
+    """
+    Download all recordings (pending, accepted, rejected) as a zip file.
+    Admin-only endpoint.
+    """
+    if not is_owner():
+        abort(403)
+    
+    uploads = _load_upload_log()
+    
+    if not uploads:
+        return jsonify({"ok": False, "error": "No recordings"}), 404
+    
+    # Create in-memory zip file
+    zip_buffer = io.BytesIO()
+    try:
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for entry in uploads.values():
+                rel = entry.get("saved_to")
+                if not rel:
+                    continue
+                
+                p = (RECORDED_ROOT / rel).resolve()
+                
+                # Security check - prevent directory traversal
+                if not str(p).startswith(str(RECORDED_ROOT)) or not p.exists():
+                    log.warning("[Download] Skipping invalid/missing path: %s", rel)
+                    continue
+                
+                # Add file to zip using the original path as the archive name
+                zf.write(p, arcname=rel)
+        
+        zip_buffer.seek(0)
+        log.info("✅ [Download] Created zip with %d total recordings", len(uploads))
+        
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"all_submitted_sounds_{int(time.time())}.zip"
+        )
+    except Exception as e:
+        log.exception("[Download] Failed to create zip: %s", e)
+        return jsonify({"ok": False, "error": "Failed to create zip file"}), 500
+
 @wavebox_bp.get("/dev")
 def dev_dashboard():
     if not is_owner():
         abort(403)
     uploads = _load_upload_log()
-    return render_template("sounds_dev.html", uploads=uploads)
+    accepted_count = len([e for e in uploads.values() if e.get("status") == "accepted"])
+    return render_template("sounds_dev.html", uploads=uploads, accepted_count=accepted_count)
 
 @wavebox_bp.get("/api/me")
 def api_me():
