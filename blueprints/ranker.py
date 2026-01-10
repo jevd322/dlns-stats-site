@@ -4,7 +4,8 @@ import json
 import time
 from pathlib import Path
 from flask import Blueprint, jsonify, request, render_template, redirect, url_for
-from utils.auth import is_logged_in, get_current_user, require_login, require_admin
+from functools import wraps
+from utils.auth import is_logged_in, get_current_user, require_login
 
 
 ranker_bp = Blueprint("ranker", __name__, url_prefix="/rank")
@@ -13,6 +14,28 @@ ranker_bp = Blueprint("ranker", __name__, url_prefix="/rank")
 DATA_DIR = Path("data").resolve()
 SUBMISSIONS_FILE = DATA_DIR / "rank_submissions.json"  # { discord_id: { rank: str, submitted_at: int } }
 TEAMS_FILE = DATA_DIR / "team_assignments.json"        # { discord_id: 0|1 }
+"""
+Hardcoded admin list for Ranker dev panel. Add Discord user IDs here.
+"""
+RANKER_OWNER_IDS: set[str] = {
+    "950380630905069578", "285203317162770442", "545930766367064086"
+}
+
+def is_ranker_admin() -> bool:
+    user = get_current_user() or {}
+    uid = str(user.get("id") or "")
+    return uid in RANKER_OWNER_IDS
+
+def require_ranker_admin(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not is_logged_in():
+            return redirect(url_for("auth.login", next=request.path))
+        if not is_ranker_admin():
+            return redirect(url_for("ranker.rank_page"))
+        return f(*args, **kwargs)
+    return wrapper
+
 
 
 def _load_json(path: Path) -> dict:
@@ -42,7 +65,7 @@ def rank_page():
 
 
 @ranker_bp.get("/dev")
-@require_admin
+@require_ranker_admin
 def rank_admin_page():
     """Admin panel for assigning teams."""
     return render_template("react.html", page="rank_admin")
@@ -93,7 +116,7 @@ def api_submit_rank():
 
 
 @ranker_bp.get("/api/players")
-@require_admin
+@require_ranker_admin
 def api_players():
     subs = _load_json(SUBMISSIONS_FILE)
     teams = _load_json(TEAMS_FILE)
@@ -113,7 +136,7 @@ def api_players():
 
 
 @ranker_bp.post("/api/assign")
-@require_admin
+@require_ranker_admin
 def api_assign_team():
     payload = request.get_json(force=True, silent=True) or {}
     uid = str(payload.get("id") or "")
@@ -131,7 +154,7 @@ def api_assign_team():
 
 
 @ranker_bp.post("/api/clear")
-@require_admin
+@require_ranker_admin
 def api_clear():
     """Clear all players and team assignments, forcing resubmission."""
     _save_json(SUBMISSIONS_FILE, {})
