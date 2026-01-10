@@ -16,7 +16,6 @@ export function SoundLibrary() {
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [normalize, setNormalize] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
-  const [targetPath, setTargetPath] = useState('');
   const [existsStatus, setExistsStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -305,9 +304,9 @@ export function SoundLibrary() {
   };
 
   const handleCheckExists = async () => {
-    const path = targetPath.trim();
-    if (!path) {
-      showError('Enter a target path (e.g. vo/astro/line_01.mp3)');
+    const path = nowPlaying.path;
+    if (!path || path === '—') {
+      showError('Select a sound first');
       return;
     }
     try {
@@ -325,13 +324,13 @@ export function SoundLibrary() {
   };
 
   const handleUploadRecording = async () => {
-    const path = targetPath.trim();
+    const path = nowPlaying.path;
     if (!recordedBlob) {
       showError('Record something first');
       return;
     }
-    if (!path) {
-      showError('Enter a target path (e.g. vo/astro/line_01.mp3)');
+    if (!path || path === '—') {
+      showError('Select a sound first');
       return;
     }
 
@@ -584,15 +583,12 @@ export function SoundLibrary() {
                       </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', alignItems: 'end', marginBottom: '12px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Target path (e.g. vo/astro/line_01.mp3)</label>
-                        <input
-                          value={targetPath}
-                          onChange={(e) => setTargetPath(e.target.value)}
-                          placeholder="vo/astro/line_01.mp3"
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#ffffff' }}
-                        />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '12px', alignItems: 'end', marginBottom: '12px' }}>
+                      <div style={{ fontSize: '12px', color: '#b2b2b8' }}>
+                        <div style={{ fontWeight: 700, color: '#ffffff', marginBottom: '4px' }}>Target path</div>
+                        <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '8px', padding: '10px 12px', fontSize: '12px', color: '#dcdce0', minHeight: '40px' }}>
+                          {nowPlaying.path && nowPlaying.path !== '—' ? nowPlaying.path : 'Select a sound to target'}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button
@@ -617,8 +613,8 @@ export function SoundLibrary() {
                         <span style={{ height: '10px', width: '10px', borderRadius: '50%', background: existsStatus.exists ? (existsStatus.status === 'accepted' ? '#1db954' : '#f5a524') : '#7a7a82', display: 'inline-block' }}></span>
                         <span>
                           {existsStatus.exists
-                            ? `Already ${existsStatus.status || 'pending'} at ${existsStatus.path || targetPath}`
-                            : `Available • ${targetPath || existsStatus.path || ''}`}
+                            ? `Already ${existsStatus.status || 'pending'} at ${existsStatus.path || nowPlaying.path}`
+                            : `Available • ${existsStatus.path || nowPlaying.path || ''}`}
                         </span>
                       </div>
                     )}
