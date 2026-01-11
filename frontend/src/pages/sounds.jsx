@@ -613,7 +613,7 @@ export function SoundLibrary() {
                   <button
                     onClick={() => {
                       const returnUrl = window.location.pathname + window.location.search;
-                      window.location.href = `/auth/discord?return_to=${encodeURIComponent(returnUrl)}`;
+                      window.location.href = `/auth/login?next=${encodeURIComponent(returnUrl)}`;
                     }}
                     style={{
                       width: '100%',
