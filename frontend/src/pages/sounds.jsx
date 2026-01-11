@@ -30,6 +30,8 @@ export function SoundLibrary() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [noiseSuppression, setNoiseSuppression] = useState(true);
   
   const audioRef = useRef(null);
@@ -392,10 +394,18 @@ export function SoundLibrary() {
     }
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFile(file);
+    showSuccess(`Loaded: ${file.name}`);
+  };
+
   const handleUploadRecording = async () => {
     const path = nowPlaying.path;
-    if (!recordedBlob) {
-      showError('Record something first');
+    const blob = uploadedFile || recordedBlob;
+    if (!blob) {
+      showError('Record or upload something first');
       return;
     }
     if (!path || path === '—') {
@@ -414,11 +424,14 @@ export function SoundLibrary() {
         return;
       }
 
-      await uploadRecording(recordedBlob, path);
+      await uploadRecording(blob, path);
       showSuccess('Upload submitted');
       // Refresh status to pending
       const updated = await checkExists(path);
       setExistsStatus(updated);
+      // Clear uploaded file after successful submit
+      setUploadedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       showError(err.message || 'Upload failed');
     } finally {
@@ -671,7 +684,21 @@ export function SoundLibrary() {
                       >
                         💾 Save
                       </button>
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', color: '#ffffff', transition: 'all 0.2s ease' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; }}
+                      >
+                        📁 Upload
+                        <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                      </label>
                     </div>
+
+                    {uploadedFile && (
+                      <div style={{ background: 'rgba(29, 185, 84, 0.15)', border: '1px solid rgba(29, 185, 84, 0.3)', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px', color: '#dcdce0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>📄 {uploadedFile.name}</span>
+                        <button onClick={() => { setUploadedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} style={{ background: 'transparent', border: 'none', color: '#b2b2b8', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                      </div>
+                    )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '12px', alignItems: 'end', marginBottom: '12px' }}>
                       <div style={{ fontSize: '12px', color: '#b2b2b8' }}>
