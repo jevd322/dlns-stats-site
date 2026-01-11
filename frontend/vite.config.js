@@ -13,6 +13,8 @@ export default defineConfig({
         dev: path.resolve(__dirname, 'src/pages/dev.entry.jsx'),
         rank: path.resolve(__dirname, 'src/pages/rank.entry.jsx'),
         rank_admin: path.resolve(__dirname, 'src/pages/rank_admin.entry.jsx'),
+        vo: path.resolve(__dirname, 'src/pages/vo.entry.jsx'),
+        vo_admin: path.resolve(__dirname, 'src/pages/vo_admin.entry.jsx'),
       },
       output: {
         entryFileNames: '[name].js',

@@ -28,6 +28,7 @@ from blueprints.onelane import onelane_bp
 from blueprints.gluten import gluten_bp
 from blueprints.ChatVTwitch import chat_bp
 from blueprints.sound_viewer import wavebox_bp
+from blueprints.vo import vo_bp
 from blueprints.filehub import filehub_bp
 from blueprints.vdata import vdata_editor_bp
 from blueprints.submission_bp import submission_bp
@@ -112,6 +113,7 @@ def create_app() -> Flask:
     app.register_blueprint(gluten_bp) 
     app.register_blueprint(chat_bp)
     app.register_blueprint(wavebox_bp)
+    app.register_blueprint(vo_bp)
     app.register_blueprint(filehub_bp)
     app.register_blueprint(vdata_editor_bp)
     app.register_blueprint(submission_bp)

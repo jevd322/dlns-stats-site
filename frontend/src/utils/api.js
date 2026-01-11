@@ -3,6 +3,7 @@
  */
 
 const API_BASE = '/sounds/api';
+const VO_API_BASE = '/vo/api';
 
 export async function fetchTree(path = '') {
   const url = new URL(`${API_BASE}/tree`, window.location.origin);
@@ -123,6 +124,31 @@ export async function fetchAllStatuses() {
   if (!res.ok) throw new Error('Failed to fetch statuses');
   const data = await res.json();
   return data.statuses || {};
+}
+
+export async function fetchVoTasks() {
+  const res = await fetch(`${VO_API_BASE}/tasks`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load VO tasks');
+  return data.tasks || [];
+}
+
+export async function fetchVoContent() {
+  const res = await fetch(`${VO_API_BASE}/content`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load VO content');
+  return data.content || { html: '', assets: { zip: null, videos: [], artwork: [] } };
+}
+
+export async function saveVoContent(content) {
+  const res = await fetch(`${VO_API_BASE}/content`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(content || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to save VO content');
+  return data.content;
 }
 
 /**
