@@ -752,6 +752,39 @@ def api_me():
         return jsonify({"ok": False, "user": None})
     return jsonify({"ok": True, "user": user})
 
+@wavebox_bp.get("/api/all-statuses")
+def api_all_statuses():
+    """
+    Return status map for all files in data/recorded/.
+    Returns: { "path/to/file.mp3": { "status": "pending|accepted|missing", ... }, ... }
+    """
+    uploads = _load_upload_log()
+    result = {}
+    
+    # Map all recorded files
+    if RECORDED_ROOT.exists():
+        for fpath in RECORDED_ROOT.rglob("*"):
+            if not fpath.is_file():
+                continue
+            
+            rel = str(fpath.relative_to(RECORDED_ROOT)).replace("\\", "/").lower()
+            
+            # Check if it's in the uploads log
+            for entry in uploads.values():
+                if str(entry.get("saved_to", "")).lower() == rel:
+                    result[rel] = {
+                        "status": entry.get("status", "pending"),
+                        "accepted_at": entry.get("accepted_at"),
+                        "uploader": entry.get("user"),
+                        "timestamp": entry.get("timestamp")
+                    }
+                    break
+            else:
+                # File exists but not logged
+                result[rel] = {"status": "pending"}
+    
+    return jsonify({"ok": True, "statuses": result})
+
 # =====================================================
 # ---------------- ERROR HANDLERS ----------------
 # =====================================================

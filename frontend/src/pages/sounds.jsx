@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Header } from '../components/Header';
-import { fetchTree, fetchStats, fetchRandom, getMe, checkExists, uploadRecording } from '../utils/api';
+import { fetchTree, fetchStats, fetchRandom, getMe, checkExists, uploadRecording, fetchAllStatuses } from '../utils/api';
 import { showSuccess, showError, showInfo } from '../utils/toast';
 
 export function SoundLibrary() {
@@ -22,6 +22,7 @@ export function SoundLibrary() {
   const [existsStatus, setExistsStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [fileStatuses, setFileStatuses] = useState({});
   
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -160,6 +161,14 @@ export function SoundLibrary() {
       };
       buildCounts(data);
       countsRef.current = countsMap;
+      
+      // Load file statuses
+      try {
+        const statuses = await fetchAllStatuses();
+        setFileStatuses(statuses);
+      } catch (err) {
+        console.warn('Failed to load statuses:', err);
+      }
     } catch (err) {
       showError('Failed to load library');
     }
@@ -488,14 +497,21 @@ export function SoundLibrary() {
     if (node.type === 'file') {
       if (!matchesFilter(node.path)) return null;
       const isActive = nowPlaying.path === node.path;
+      
+      // Get file status (normalize path to lowercase and remove leading slash)
+      const statusKey = node.path.toLowerCase().replace(/^\//, '');
+      const status = fileStatuses[statusKey];
+      const statusColor = status?.status === 'accepted' ? '#1db954' : status ? '#f5a524' : 'transparent';
+      const statusBg = status?.status === 'accepted' ? 'rgba(29, 185, 84, 0.15)' : status ? 'rgba(245, 165, 36, 0.12)' : 'transparent';
+      
       return (
         <div
           key={node.path}
           className="tree-item"
-          style={{ paddingLeft: `${depth * 16 + 28}px`, padding: '7px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: isActive ? '#ffffff' : '#b2b2b8', border: isActive ? '1px solid rgba(29,185,84,0.6)' : '1px solid transparent', background: isActive ? 'rgba(29,185,84,0.12)' : 'transparent', position: 'relative' }}
+          style={{ paddingLeft: `${depth * 16 + 28}px`, padding: '7px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: isActive ? '#ffffff' : '#b2b2b8', border: isActive ? '1px solid rgba(29,185,84,0.6)' : statusColor ? `1px solid rgba(${status?.status === 'accepted' ? '29,185,84' : '245,165,36'},0.4)` : '1px solid transparent', background: statusBg, position: 'relative' }}
           onClick={() => playFile(node.path)}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#ffffff'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(29,185,84,0.12)' : 'transparent'; e.currentTarget.style.color = isActive ? '#ffffff' : '#b2b2b8'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = isActive ? 'rgba(29,185,84,0.12)' : statusBg ? statusBg.replace('0.12', '0.25') : 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#ffffff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = statusBg; e.currentTarget.style.color = isActive ? '#ffffff' : '#b2b2b8'; }}
         >
           <span style={{ position: 'absolute', left: `${depth * 16 + 16}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
           🎵 {node.name}

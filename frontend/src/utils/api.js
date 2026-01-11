@@ -118,6 +118,13 @@ export async function acceptAllPending() {
   return res.json();
 }
 
+export async function fetchAllStatuses() {
+  const res = await fetch(`${API_BASE}/all-statuses`);
+  if (!res.ok) throw new Error('Failed to fetch statuses');
+  const data = await res.json();
+  return data.statuses || {};
+}
+
 /**
  * Ranker API
  */
