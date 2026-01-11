@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Header } from '../components/Header';
 import { fetchTree, fetchStats, fetchRandom, getMe, checkExists, uploadRecording } from '../utils/api';
 import { showSuccess, showError, showInfo } from '../utils/toast';
@@ -16,6 +16,7 @@ export function SoundLibrary() {
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [normalize, setNormalize] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
+  const [treeFilter, setTreeFilter] = useState('');
   const [volume, setVolume] = useState(80);
   const [boostDb, setBoostDb] = useState(0);
   const [existsStatus, setExistsStatus] = useState(null);
@@ -31,6 +32,7 @@ export function SoundLibrary() {
   const [devices, setDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [recorderMode, setRecorderMode] = useState('record');
   const fileInputRef = useRef(null);
   const [noiseSuppression, setNoiseSuppression] = useState(true);
   
@@ -46,6 +48,22 @@ export function SoundLibrary() {
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
   const recordedUrlRef = useRef(null);
+
+  const allFolderPaths = useMemo(() => {
+    const paths = [];
+    const walk = (node) => {
+      if (!node) return;
+      const key = node.path || '';
+      paths.push(key);
+      (node.children || []).forEach(child => {
+        if (child.type === 'dir' || child.children) {
+          walk(child);
+        }
+      });
+    };
+    walk(tree);
+    return paths;
+  }, [tree]);
 
   useEffect(() => {
     // Load persisted settings
@@ -456,15 +474,28 @@ export function SoundLibrary() {
   };
 
   const renderTree = (node, depth = 0) => {
+    const matchesFilter = (pathStr) => {
+      if (!treeFilter.trim()) return true;
+      const q = treeFilter.toLowerCase();
+      return pathStr.toLowerCase().includes(q);
+    };
+
+    const hasMatchingDescendant = (n) => {
+      if (n.type === 'file') return matchesFilter(n.path);
+      return (n.children || []).some(hasMatchingDescendant);
+    };
+
     if (node.type === 'file') {
+      if (!matchesFilter(node.path)) return null;
+      const isActive = nowPlaying.path === node.path;
       return (
         <div
           key={node.path}
           className="tree-item"
-          style={{ paddingLeft: `${depth * 16 + 28}px`, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: '#b2b2b8', border: '1px solid transparent', position: 'relative' }}
+          style={{ paddingLeft: `${depth * 16 + 28}px`, padding: '7px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: isActive ? '#ffffff' : '#b2b2b8', border: isActive ? '1px solid rgba(29,185,84,0.6)' : '1px solid transparent', background: isActive ? 'rgba(29,185,84,0.12)' : 'transparent', position: 'relative' }}
           onClick={() => playFile(node.path)}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#ffffff'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#b2b2b8'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(29,185,84,0.12)' : 'transparent'; e.currentTarget.style.color = isActive ? '#ffffff' : '#b2b2b8'; }}
         >
           <span style={{ position: 'absolute', left: `${depth * 16 + 16}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
           🎵 {node.name}
@@ -475,11 +506,12 @@ export function SoundLibrary() {
     const pathKey = node.path || '';
     const isOpen = expanded.has(pathKey);
     const counts = countsRef.current[pathKey] || { files: 0, folders: 0 };
+    if (treeFilter.trim() && !hasMatchingDescendant(node)) return null;
     return (
       <div key={pathKey || 'root'}>
         <div
           className="tree-item tree-folder"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 16 + 12}px`, padding: '8px 12px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none', position: 'relative', borderRadius: '8px' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 16 + 12}px`, padding: '7px 10px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none', position: 'relative', borderRadius: '8px' }}
           onClick={() => toggleFolder(pathKey)}
         >
           <span style={{ position: 'absolute', left: `${depth * 16}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
@@ -527,7 +559,28 @@ export function SoundLibrary() {
                 <span>{stats.files}</span> files · <span>{stats.folders}</span> folders
               </div>
             </div>
-            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '68vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+              <input
+                type="text"
+                placeholder="Filter path or name"
+                value={treeFilter}
+                onChange={(e) => setTreeFilter(e.target.value)}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.14)', color: '#ffffff', fontSize: '13px' }}
+              />
+              <button
+                onClick={() => setExpanded(new Set(allFolderPaths))}
+                style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#ffffff', borderRadius: '10px', padding: '10px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+              >
+                Expand
+              </button>
+              <button
+                onClick={() => setExpanded(new Set())}
+                style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#ffffff', borderRadius: '10px', padding: '10px 12px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+              >
+                Collapse
+              </button>
+            </div>
+            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '68vh', overflowY: 'auto' }}>
               {renderTree({ ...tree, type: 'dir', name: 'sounds', path: '' })}
             </nav>
 
@@ -611,87 +664,113 @@ export function SoundLibrary() {
                     <div style={{ fontWeight: 700, fontSize: '16px', color: '#1db954', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                       🎙️ Record Your Audio
                     </div>
-                    <p style={{ fontSize: '12px', color: '#7a7a82', marginBottom: '16px' }}>Record and submit new audio to the library</p>
+                    <p style={{ fontSize: '12px', color: '#7a7a82', marginBottom: '16px' }}>Record or upload audio to submit to the library</p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Microphone</label>
-                        <select 
-                          value={selectedDevice} 
-                          onChange={(e) => setSelectedDevice(e.target.value)}
-                          style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255, 255, 255, 0.14)', color: '#ffffff', fontSize: '13px', lineHeight: '1.4' }}
-                        >
-                          {devices.map(d => (
-                            <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={noiseSuppression}
-                            onChange={(e) => setNoiseSuppression(e.target.checked)}
-                          />
-                          Noise Suppression
-                        </label>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Playback volume</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ flex: 1 }} />
-                          <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{volume}%</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Volume boost (dB)</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input type="range" min="0" max="12" value={boostDb} onChange={(e) => setBoostDb(Number(e.target.value))} style={{ flex: 1 }} />
-                          <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{boostDb} dB</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                      <button 
-                        onClick={startRecording} 
-                        disabled={isRecording}
-                        style={{ background: isRecording ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(90deg, #ff006e, #ff1744)', border: 'none', color: isRecording ? '#7a7a82' : '#fff', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: isRecording ? 'not-allowed' : 'pointer', fontSize: '14px' }}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                      <button
+                        onClick={() => setRecorderMode('record')}
+                        style={{ flex: 1, background: recorderMode === 'record' ? 'linear-gradient(90deg, #1db954, #1ed760)' : 'rgba(255, 255, 255, 0.08)', border: recorderMode === 'record' ? 'none' : '1px solid rgba(255, 255, 255, 0.12)', color: recorderMode === 'record' ? '#000' : '#ffffff', borderRadius: '10px', padding: '12px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}
                       >
-                        ⏺ Start
+                        🎤 Record
                       </button>
-                      <button 
-                        onClick={stopRecording} 
-                        disabled={!isRecording}
-                        style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: isRecording ? '#ffffff' : '#7a7a82', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: isRecording ? 'pointer' : 'not-allowed', fontSize: '14px' }}
-                      >
-                        ⏹ Stop
-                      </button>
-                      <button 
-                        onClick={playRecorded} 
-                        disabled={!recordedBlob}
-                        style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: recordedBlob ? '#ffffff' : '#7a7a82', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: recordedBlob ? 'pointer' : 'not-allowed', fontSize: '14px' }}
-                      >
-                        ▶ Play
-                      </button>
-                      <button 
-                        onClick={downloadRecorded} 
-                        disabled={!recordedBlob}
-                        style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: recordedBlob ? '#ffffff' : '#7a7a82', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: recordedBlob ? 'pointer' : 'not-allowed', fontSize: '14px' }}
-                      >
-                        💾 Save
-                      </button>
-                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', color: '#ffffff', transition: 'all 0.2s ease' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; }}
+                      <button
+                        onClick={() => setRecorderMode('upload')}
+                        style={{ flex: 1, background: recorderMode === 'upload' ? 'linear-gradient(90deg, #1db954, #1ed760)' : 'rgba(255, 255, 255, 0.08)', border: recorderMode === 'upload' ? 'none' : '1px solid rgba(255, 255, 255, 0.12)', color: recorderMode === 'upload' ? '#000' : '#ffffff', borderRadius: '10px', padding: '12px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}
                       >
                         📁 Upload
-                        <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileUpload} style={{ display: 'none' }} />
-                      </label>
+                      </button>
                     </div>
+
+                    {recorderMode === 'record' && (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Microphone</label>
+                            <select 
+                              value={selectedDevice} 
+                              onChange={(e) => setSelectedDevice(e.target.value)}
+                              style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255, 255, 255, 0.14)', color: '#ffffff', fontSize: '13px', lineHeight: '1.4' }}
+                            >
+                              {devices.map(d => (
+                                <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={noiseSuppression}
+                                onChange={(e) => setNoiseSuppression(e.target.checked)}
+                              />
+                              Noise Suppression
+                            </label>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Playback volume</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ flex: 1 }} />
+                              <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{volume}%</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Volume boost (dB)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <input type="range" min="0" max="12" value={boostDb} onChange={(e) => setBoostDb(Number(e.target.value))} style={{ flex: 1 }} />
+                              <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{boostDb} dB</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                          <button 
+                            onClick={startRecording} 
+                            disabled={isRecording}
+                            style={{ background: isRecording ? 'rgba(255, 255, 255, 0.08)' : 'linear-gradient(90deg, #ff006e, #ff1744)', border: 'none', color: isRecording ? '#7a7a82' : '#fff', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: isRecording ? 'not-allowed' : 'pointer', fontSize: '14px' }}
+                          >
+                            ⏺ Start
+                          </button>
+                          <button 
+                            onClick={stopRecording} 
+                            disabled={!isRecording}
+                            style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: isRecording ? '#ffffff' : '#7a7a82', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: isRecording ? 'pointer' : 'not-allowed', fontSize: '14px' }}
+                          >
+                            ⏹ Stop
+                          </button>
+                          <button 
+                            onClick={playRecorded} 
+                            disabled={!recordedBlob}
+                            style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: recordedBlob ? '#ffffff' : '#7a7a82', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: recordedBlob ? 'pointer' : 'not-allowed', fontSize: '14px' }}
+                          >
+                            ▶ Play
+                          </button>
+                          <button 
+                            onClick={downloadRecorded} 
+                            disabled={!recordedBlob}
+                            style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.08)', color: recordedBlob ? '#ffffff' : '#7a7a82', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: recordedBlob ? 'pointer' : 'not-allowed', fontSize: '14px' }}
+                          >
+                            💾 Save
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {recorderMode === 'upload' && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '10px', padding: '12px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '14px', color: '#ffffff', transition: 'all 0.2s ease' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'; }}
+                        >
+                          <span>Choose audio file</span>
+                          <span style={{ fontSize: '12px', color: '#dcdce0' }}>wav, mp3, ogg</span>
+                          <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                        </label>
+                        <div style={{ fontSize: '12px', color: '#7a7a82', marginTop: '8px' }}>Uploads transcode to mp3 automatically.</div>
+                      </div>
+                    )}
 
                     {uploadedFile && (
                       <div style={{ background: 'rgba(29, 185, 84, 0.15)', border: '1px solid rgba(29, 185, 84, 0.3)', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px', color: '#dcdce0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -736,21 +815,25 @@ export function SoundLibrary() {
                       </div>
                     )}
 
-                    <div style={{ margin: '16px 0' }}>
-                      <label style={{ fontSize: '11px', color: '#7a7a82', display: 'block', marginBottom: '8px' }}>Audio Level</label>
-                      <div style={{ width: '100%', height: '8px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: 'linear-gradient(90deg, #1db954, #00d8ff)', width: `${audioLevel}%`, transition: 'width 0.05s linear' }}></div>
-                      </div>
-                    </div>
+                    {recorderMode === 'record' && (
+                      <>
+                        <div style={{ margin: '16px 0' }}>
+                          <label style={{ fontSize: '11px', color: '#7a7a82', display: 'block', marginBottom: '8px' }}>Audio Level</label>
+                          <div style={{ width: '100%', height: '8px', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: 'linear-gradient(90deg, #1db954, #00d8ff)', width: `${audioLevel}%`, transition: 'width 0.05s linear' }}></div>
+                          </div>
+                        </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '16px', borderTop: '1px solid rgba(29, 185, 84, 0.2)' }}>
-                      <div style={{ fontSize: '12px', color: '#7a7a82' }}>
-                        Duration: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordDuration}</strong>
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#7a7a82' }}>
-                        Size: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordSize}</strong>
-                      </div>
-                    </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '16px', borderTop: '1px solid rgba(29, 185, 84, 0.2)' }}>
+                          <div style={{ fontSize: '12px', color: '#7a7a82' }}>
+                            Duration: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordDuration}</strong>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#7a7a82' }}>
+                            Size: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordSize}</strong>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
