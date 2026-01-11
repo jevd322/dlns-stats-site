@@ -510,12 +510,12 @@ export function SoundLibrary() {
         <div
           key={node.path}
           className="tree-item"
-          style={{ paddingLeft: `${depth * 36 + 56}px`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: isActive ? '#ffffff' : '#b2b2b8', border: isActive ? '1px solid rgba(29,185,84,0.6)' : statusBorder, background: isActive ? 'rgba(29,185,84,0.15)' : statusBg, position: 'relative' }}
+          style={{ paddingLeft: `${depth * 48 + 72}px`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s ease', fontSize: '13px', color: isActive ? '#ffffff' : '#b2b2b8', border: isActive ? '1px solid rgba(29,185,84,0.6)' : statusBorder, background: isActive ? 'rgba(29,185,84,0.15)' : statusBg, position: 'relative' }}
           onClick={() => playFile(node.path)}
           onMouseEnter={(e) => { e.currentTarget.style.background = isActive ? 'rgba(29,185,84,0.15)' : statusBg !== 'transparent' ? statusBg.replace(/0\.\d+/, m => String(Math.min(parseFloat(m) + 0.1, 0.25))) : 'rgba(255, 255, 255, 0.08)'; e.currentTarget.style.color = '#ffffff'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = isActive ? 'rgba(29,185,84,0.15)' : statusBg; e.currentTarget.style.color = isActive ? '#ffffff' : '#b2b2b8'; }}
         >
-          <span style={{ position: 'absolute', left: `${depth * 36 + 36}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
+          <span style={{ position: 'absolute', left: `${depth * 48 + 48}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
           🎵 {node.name}
         </div>
       );
@@ -529,10 +529,10 @@ export function SoundLibrary() {
       <div key={pathKey || 'root'}>
         <div
           className="tree-item tree-folder"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 36 + 24}px`, padding: '4px 8px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none', position: 'relative', borderRadius: '6px' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: `${depth * 48 + 28}px`, padding: '4px 8px', fontSize: '13px', color: '#b2b2b8', fontWeight: 600, cursor: 'pointer', userSelect: 'none', position: 'relative', borderRadius: '6px' }}
           onClick={() => toggleFolder(pathKey)}
         >
-          <span style={{ position: 'absolute', left: `${depth * 36 + 12}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
+          <span style={{ position: 'absolute', left: `${depth * 48 + 16}px`, top: 0, bottom: 0, borderLeft: '1px dashed rgba(255,255,255,0.06)' }}></span>
           <span style={{ display: 'inline-block', width: '14px', textAlign: 'center', color: isOpen ? '#1db954' : '#b2b2b8' }}>{isOpen ? '▼' : '▶'}</span>
           <span role="img" aria-label="folder">📁</span>
           <span style={{ color: '#ffffff' }}>{node.name}</span>
@@ -566,7 +566,7 @@ export function SoundLibrary() {
       />
 
       <main className="wrap mainwrap" style={{ maxWidth: '1680px', margin: '0 auto', padding: '20px' }}>
-        <section className="shell" style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '20px', height: 'calc(100vh - 200px)' }}>
+        <section className="shell" style={{ display: 'grid', gridTemplateColumns: '520px 1fr', gap: '20px', height: 'calc(100vh - 200px)' }}>
           {/* Sidebar */}
           <aside className="sidebar" style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '20px', overflowY: 'auto', backdropFilter: 'blur(10px)' }}>
             <div className="side-head" style={{ marginBottom: '20px' }}>
