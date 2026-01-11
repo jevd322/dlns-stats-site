@@ -127,7 +127,7 @@ def api_vo_content_save():
 @vo_bp.get("")
 def vo_public():
     """Public Community VO hub (React bundle)."""
-    return render_template("react.html", entry="vo")
+    return render_template("react.html", page="vo")
 
 
 @vo_bp.get("/admin")
@@ -136,4 +136,4 @@ def vo_admin():
     user = get_current_user()
     if not _is_admin(user):
         abort(403)
-    return render_template("react.html", entry="vo_admin")
+    return render_template("react.html", page="vo_admin")
