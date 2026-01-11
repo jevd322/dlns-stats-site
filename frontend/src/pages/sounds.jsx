@@ -81,14 +81,16 @@ export function SoundLibrary() {
       } catch {}
     }
 
-    // Check auth
+    // Check auth - verify with server (cookie-based session)
     (async () => {
       try {
         const res = await getMe();
         if (res.ok && res.user) {
           setIsAuthenticated(true);
         }
-      } catch {}
+      } catch {
+        setIsAuthenticated(false);
+      }
     })();
 
     // Load tree and stats
@@ -601,6 +603,35 @@ export function SoundLibrary() {
             <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '60vh', overflowY: 'auto' }}>
               {renderTree({ ...tree, type: 'dir', name: 'sounds', path: '' })}
             </nav>
+
+            {!isAuthenticated && (
+              <>
+                <hr style={{ borderColor: 'rgba(255, 255, 255, 0.08)', margin: '16px 0' }} />
+                <div style={{ background: 'rgba(29, 185, 84, 0.1)', border: '1px solid rgba(29, 185, 84, 0.3)', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '8px', color: '#1db954' }}>🔐 Log in to Record</div>
+                  <p style={{ fontSize: '12px', color: '#b2b2b8', marginBottom: '12px' }}>Sign in to submit audio files for review</p>
+                  <button
+                    onClick={() => {
+                      const returnUrl = window.location.pathname + window.location.search;
+                      window.location.href = `/auth/discord?return_to=${encodeURIComponent(returnUrl)}`;
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'linear-gradient(90deg, #1db954, #1ed760)',
+                      border: 'none',
+                      color: '#000',
+                      padding: '10px 16px',
+                      borderRadius: '10px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                    }}
+                  >
+                    Login with Discord
+                  </button>
+                </div>
+              </>
+            )}
 
             {isAuthenticated && (
               <>

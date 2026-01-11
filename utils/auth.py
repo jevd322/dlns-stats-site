@@ -1,14 +1,41 @@
 from functools import wraps
-from flask import session, flash, redirect, url_for
+from flask import request, flash, redirect, url_for, current_app
 import os
+import sqlite3
+
+SESSION_TABLE = 'user_sessions'
+
 
 def is_logged_in():
-    """Check if user is logged in"""
-    return 'discord_user' in session
+    """Check if user is logged in via session cookie"""
+    return get_current_user() is not None
+
 
 def get_current_user():
-    """Get current user from session"""
-    return session.get('discord_user')
+    """Get current user from secure session cookie"""
+    session_token = request.cookies.get('session_token')
+    if not session_token:
+        return None
+    
+    try:
+        db_path = current_app.config.get('DB_PATH', './data/dlns.sqlite3')
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT discord_id, username, avatar FROM {SESSION_TABLE} WHERE session_token = ?', (session_token,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return None
+        
+        discord_id, username, avatar = row
+        return {
+            'id': discord_id,
+            'username': username,
+            'avatar': avatar,
+        }
+    except Exception:
+        return None
 
 def require_login(f):
     """Decorator to require login for a route"""

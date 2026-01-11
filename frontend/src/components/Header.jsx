@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
+import { logout } from '../utils/api';
 
 export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAutoplayChange, normalize, autoplay, volume, boostDb, onVolumeChange, onBoostChange }) {
   const [search, setSearch] = useState('');
@@ -135,6 +136,31 @@ export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAu
                 }}
               >
                 🎙️ Record
+              </button>
+            )}
+
+            {isAuthenticated && (
+              <button
+                onClick={() => logout()}
+                style={{
+                  background: 'rgba(255, 68, 68, 0.16)',
+                  border: '1px solid rgba(255, 68, 68, 0.3)',
+                  color: '#ff4444',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'rgba(255, 68, 68, 0.24)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'rgba(255, 68, 68, 0.16)';
+                }}
+              >
+                🚪 Logout
               </button>
             )}
 
