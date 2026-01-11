@@ -564,9 +564,9 @@ export function SoundLibrary() {
       />
 
       <main className="wrap mainwrap" style={{ maxWidth: '1680px', margin: '0 auto', padding: '20px' }}>
-        <section className="shell" style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '20px', height: 'calc(100vh - 200px)' }}>
+        <section className="shell" style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '20px', height: 'calc(100vh - 200px)' }}>
           {/* Sidebar */}
-          <aside className="sidebar" style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '24px', overflowY: 'auto', backdropFilter: 'blur(10px)' }}>
+          <aside className="sidebar" style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', padding: '20px', overflowY: 'auto', backdropFilter: 'blur(10px)' }}>
             <div className="side-head" style={{ marginBottom: '20px' }}>
               <div className="side-title" style={{ fontWeight: 600, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#b2b2b8', marginBottom: '12px' }}>
                 📚 Your Library
@@ -596,7 +596,7 @@ export function SoundLibrary() {
                 Collapse
               </button>
             </div>
-            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '68vh', overflowY: 'auto' }}>
+            <nav className="tree" style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '60vh', overflowY: 'auto' }}>
               {renderTree({ ...tree, type: 'dir', name: 'sounds', path: '' })}
             </nav>
 
@@ -629,7 +629,7 @@ export function SoundLibrary() {
 
           {/* Main Panel */}
           <section className="panel" style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div className="inner" style={{ padding: '32px', overflowY: 'auto', flex: 1 }}>
+            <div className="inner" style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
               {/* Now Playing */}
               <div className="now" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px', background: 'rgba(29, 185, 84, 0.1)', border: '1px solid rgba(29, 185, 84, 0.3)', borderRadius: '12px', marginBottom: '28px' }}>
                 <div style={{ width: '12px', height: '12px', background: '#1db954', borderRadius: '50%', animation: isPlaying ? 'pulse 1s infinite' : 'none', flexShrink: 0 }}></div>
