@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 import requests
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory
 
 from utils.auth import get_current_user
 
@@ -19,7 +19,9 @@ vo_bp = Blueprint(
 )
 
 DATA_DIR = Path("data")
-VO_CONTENT_FILE = DATA_DIR / "vo_content.json"
+VO_UPLOADS_DIR = DATA_DIR / "vo_uploads"
+VO_MARKDOWN_FILE = VO_UPLOADS_DIR / "content.md"
+VO_ASSETS_META_FILE = VO_UPLOADS_DIR / "assets.json"
 ADMIN_IDS = {
     "281950593436614656",
     "285203317162770442",
@@ -35,8 +37,8 @@ def _is_admin(user: dict | None) -> bool:
 
 def _default_content() -> dict:
     return {
-        "html": "",
-        "assets": {"zip": None, "videos": [], "artwork": []},
+        "markdown": "",
+        "assets": {"zip": None, "videos": [], "images": []},
         "updated_at": None,
         "updated_by": None,
     }
@@ -44,38 +46,63 @@ def _default_content() -> dict:
 
 def _load_vo_content() -> dict:
     try:
-        if VO_CONTENT_FILE.exists():
-            data = json.loads(VO_CONTENT_FILE.read_text(encoding="utf-8"))
-            # Ensure required keys exist for the frontend
-            base = _default_content()
-            base.update({k: v for k, v in data.items() if k in base or k == "assets"})
-            if not isinstance(base.get("assets"), dict):
-                base["assets"] = {"zip": None, "videos": [], "artwork": []}
-            else:
-                base["assets"].setdefault("zip", None)
-                base["assets"].setdefault("videos", [])
-                base["assets"].setdefault("artwork", [])
-            return base
+        VO_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Load markdown content
+        markdown = ""
+        if VO_MARKDOWN_FILE.exists():
+            markdown = VO_MARKDOWN_FILE.read_text(encoding="utf-8")
+        
+        # Load assets metadata
+        assets = {"zip": None, "videos": [], "images": []}
+        if VO_ASSETS_META_FILE.exists():
+            assets_data = json.loads(VO_ASSETS_META_FILE.read_text(encoding="utf-8"))
+            assets.update(assets_data)
+        
+        # Load last updated metadata
+        updated_at = None
+        updated_by = None
+        if VO_ASSETS_META_FILE.exists():
+            meta = json.loads(VO_ASSETS_META_FILE.read_text(encoding="utf-8"))
+            updated_at = meta.get("updated_at")
+            updated_by = meta.get("updated_by")
+        
+        return {
+            "markdown": markdown,
+            "assets": assets,
+            "updated_at": updated_at,
+            "updated_by": updated_by,
+        }
     except Exception:
         pass
     return _default_content()
 
 
-def _save_vo_content(html: str, assets: dict | None, user: dict) -> dict:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+def _save_vo_content(markdown: str, assets: dict | None, user: dict) -> dict:
+    VO_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Save markdown to .md file
+    VO_MARKDOWN_FILE.write_text(markdown or "", encoding="utf-8")
+    
+    # Save assets metadata with timestamps
     safe_assets = assets if isinstance(assets, dict) else {}
     safe_assets.setdefault("zip", None)
     safe_assets.setdefault("videos", [])
-    safe_assets.setdefault("artwork", [])
-
-    payload = {
-        "html": html or "",
-        "assets": safe_assets,
+    safe_assets.setdefault("images", [])
+    
+    meta = {
+        **safe_assets,
         "updated_at": int(time.time()),
         "updated_by": user.get("username") or user.get("global_name") or user.get("name") or str(user.get("id")),
     }
-    VO_CONTENT_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return payload
+    VO_ASSETS_META_FILE.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    return {
+        "markdown": markdown or "",
+        "assets": safe_assets,
+        "updated_at": meta["updated_at"],
+        "updated_by": meta["updated_by"],
+    }
 
 
 @vo_bp.get("/api/tasks")
@@ -118,10 +145,48 @@ def api_vo_content_save():
         abort(403)
 
     payload = request.get_json(silent=True) or {}
-    html = payload.get("html") or ""
+    markdown = payload.get("markdown") or payload.get("html") or ""
     assets = payload.get("assets") or {}
-    saved = _save_vo_content(html, assets, user)
+    saved = _save_vo_content(markdown, assets, user)
     return jsonify({"ok": True, "content": saved})
+
+
+@vo_bp.post("/api/upload")
+def api_vo_upload():
+    """Upload a file (image, video, or zip)."""
+    user = get_current_user()
+    if not _is_admin(user):
+        abort(403)
+    
+    if 'file' not in request.files:
+        return jsonify({"ok": False, "error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"ok": False, "error": "No file selected"}), 400
+    
+    # Create uploads directory
+    VO_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Save file
+    file_path = VO_UPLOADS_DIR / file.filename
+    file.save(str(file_path))
+    
+    # Return file info
+    return jsonify({
+        "ok": True,
+        "file": {
+            "name": file.filename,
+            "size": file_path.stat().st_size,
+            "type": file.content_type or "",
+        }
+    })
+
+
+@vo_bp.get("/uploads/<path:filename>")
+def vo_uploads(filename):
+    """Serve uploaded files (images, videos, zip)."""
+    return send_from_directory(VO_UPLOADS_DIR, filename)
 
 
 @vo_bp.get("")

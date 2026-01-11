@@ -156,6 +156,19 @@ export async function saveVoContent(content) {
   return data.content;
 }
 
+export async function uploadVoFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const res = await fetch(`${VO_API_BASE}/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to upload file');
+  return data.file;
+}
+
 /**
  * Ranker API
  */
