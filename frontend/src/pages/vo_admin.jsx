@@ -31,11 +31,12 @@ const normalizeAssets = (maybeAssets = DEFAULT_ASSETS) => ({
 
 const quillModules = {
   toolbar: [
-    [{ header: [1, 2, 3, 4, false] }],
+    [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+    [{ header: [1, 2, 3, 4, 5, 6, false] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{ color: [] }, { background: [] }],
     [{ script: 'sub' }, { script: 'super' }],
-    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
     [{ indent: '-1' }, { indent: '+1' }],
     [{ align: [] }],
     ['blockquote', 'code-block'],
@@ -45,7 +46,7 @@ const quillModules = {
 };
 
 const quillFormats = [
-  'header', 'bold', 'italic', 'underline', 'strike', 'color', 'background', 'script',
+  'font', 'size', 'header', 'bold', 'italic', 'underline', 'strike', 'color', 'background', 'script',
   'list', 'indent', 'align', 'blockquote', 'code-block', 'link', 'image', 'video'
 ];
 
@@ -191,27 +192,19 @@ export function VoAdmin() {
   return (
     <div style={{ minHeight: '100vh', background: '#0d0d12', color: '#fff' }}>
       <header style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div>
           <div style={{ fontWeight: 800, fontSize: '18px' }}>Community VO Admin</div>
-          <div style={{ fontSize: '13px', color: '#b2b2b8' }}>Rich content + asset metadata, saved server-side at data/vo_content.json</div>
-          <div style={{ fontSize: '12px', color: '#7a7a82' }}>Last saved: {lastSaved}{loading ? ' (loading...)' : ''}</div>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <div style={{ fontSize: '12px', color: '#b2b2b8' }}>ZIP: {stats.zip} · Videos: {stats.videos} · Artwork: {stats.artwork}</div>
           <button onClick={handleSave} disabled={saving || loading} style={{ background: 'linear-gradient(90deg, #1db954, #1ed760)', border: 'none', color: '#000', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, opacity: saving || loading ? 0.7 : 1 }}>{saving ? 'Saving…' : 'Save to server'}</button>
           <button onClick={exportConfig} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', padding: '10px 12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 }}>Export JSON</button>
         </div>
       </header>
 
-      {(error || notice) && (
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '10px 20px', color: error ? '#f5a524' : '#1db954', fontSize: '13px' }}>
-          {error || notice}
-        </div>
-      )}
-
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px' }}>
-        <section style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontWeight: 700 }}>Main page content</div>
+      <main style={{ maxWidth: '1600px', margin: '0 auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Editor Section */}
+        <section style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ fontWeight: 700, fontSize: '16px' }}>Main Page Content</div>
           <ReactQuill
             theme="snow"
             value={mainText}
@@ -219,34 +212,45 @@ export function VoAdmin() {
             placeholder="Type rich content here..."
             modules={quillModules}
             formats={quillFormats}
-            style={{ background: '#111119', color: '#fff', borderRadius: '10px' }}
+            style={{ background: '#111119', color: '#fff', borderRadius: '10px', minHeight: '500px' }}
           />
           <div style={{ fontSize: '12px', color: '#7a7a82' }}>Preview</div>
-          <div style={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '12px', minHeight: '200px', background: 'rgba(255,255,255,0.02)' }}
+          <div style={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px', padding: '16px', minHeight: '300px', background: 'rgba(255,255,255,0.02)', color: '#fff' }}
             dangerouslySetInnerHTML={{ __html: mainText || emptyFallback }}></div>
         </section>
 
-        <section style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontWeight: 700 }}>Assets</div>
+        {/* Assets Upload Section */}
+        <section style={{ background: 'rgba(22, 22, 34, 0.5)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '12px' }}>Upload ZIP (pack)</div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+              <span style={{ fontSize: '13px' }}>📦 Drop ZIP</span>
+              <input type="file" accept=".zip" style={{ display: 'none' }} onChange={(e) => addFile(e.target.files, 'zip')} />
+              <span style={{ fontSize: '11px', color: '#7a7a82' }}>{assets.zip ? assets.zip.name : 'No file yet'}</span>
+            </label>
+          </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
-            <span>Upload ZIP (pack)</span>
-            <input type="file" accept=".zip" style={{ display: 'none' }} onChange={(e) => addFile(e.target.files, 'zip')} />
-            <span style={{ fontSize: '12px', color: '#7a7a82' }}>{assets.zip ? assets.zip.name : 'No file yet'}</span>
-          </label>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '12px' }}>Upload Videos</div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+              <span style={{ fontSize: '13px' }}>🎥 Drop Video</span>
+              <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => addFile(e.target.files, 'video')} />
+              <span style={{ fontSize: '11px', color: '#7a7a82' }}>MP4 / WebM recommended</span>
+            </label>
+          </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
-            <span>Upload video</span>
-            <input type="file" accept="video/*" style={{ display: 'none' }} onChange={(e) => addFile(e.target.files, 'video')} />
-            <span style={{ fontSize: '12px', color: '#7a7a82' }}>MP4 / WebM recommended</span>
-          </label>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: '12px' }}>Upload Artwork</div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+              <span style={{ fontSize: '13px' }}>🎨 Drop Image</span>
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => addFile(e.target.files, 'artwork')} />
+              <span style={{ fontSize: '11px', color: '#7a7a82' }}>PNG / JPG recommended</span>
+            </label>
+          </div>
+        </section>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '12px', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: '10px', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
-            <span>Upload artwork</span>
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => addFile(e.target.files, 'artwork')} />
-            <span style={{ fontSize: '12px', color: '#7a7a82' }}>PNG / JPG recommended</span>
-          </label>
-
+        {/* Asset Lists Section */}
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
           <AssetList
             title="Videos"
             items={assets.videos || []}
