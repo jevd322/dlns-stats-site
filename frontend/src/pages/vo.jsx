@@ -114,25 +114,27 @@ function renderMarkdown(md) {
   
   // Handle tables - match markdown table format
   // Pattern: | header | header | \n | --- | --- | \n | cell | cell |
-  html = html.replace(/^\|(.+?)\|[ \t]*\n\|[ \t]*[-:| ]+\|[ \t]*\n((?:^\|.+?\|[ \t]*\n?)*)/gm, (match) => {
+  const tableRegex = /\|(.+)\|\n\|[\s:|-]+\|\n((?:\|.+\|\n?)*)/gm;
+  
+  html = html.replace(tableRegex, (match) => {
     const lines = match.trim().split('\n').filter(line => line.trim());
     
     if (lines.length < 2) return match;
     
     // Extract header
     const headerLine = lines[0];
-    const headerCells = headerLine.split('|').map(c => c.trim()).filter(c => c && c !== '');
+    const headerCells = headerLine.split('|').map(c => c.trim()).filter(c => c !== '');
     
     if (headerCells.length === 0) return match;
     
-    // Build table
-    let table = '<table><thead><tr>';
+    // Build table with centered headers
+    let table = '<table style="width:100%; border-collapse:collapse; margin:20px 0;"><thead><tr style="background-color:#2ecc71;">';
     headerCells.forEach(cell => {
-      table += `<th>${cell}</th>`;
+      table += `<th style="padding:12px; text-align:center; border:1px solid #444; font-weight:bold;">${cell}</th>`;
     });
     table += '</tr></thead><tbody>';
     
-    // Process body rows (skip separator row)
+    // Process body rows (skip separator row at index 1)
     for (let i = 2; i < lines.length; i++) {
       const line = lines[i];
       if (line.includes('|')) {
@@ -140,7 +142,7 @@ function renderMarkdown(md) {
         if (cells.length > 0) {
           table += '<tr>';
           cells.forEach(cell => {
-            table += `<td>${cell}</td>`;
+            table += `<td style="padding:10px; text-align:center; border:1px solid #444;">${cell}</td>`;
           });
           table += '</tr>';
         }

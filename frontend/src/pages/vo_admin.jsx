@@ -215,6 +215,16 @@ export function VoAdmin() {
     }
   };
 
+  const insertTable = () => {
+    const tableMarkdown = `| Column 1 | Column 2 | Column 3 |
+| --- | --- | --- |
+| Data | Data | Data |
+| Data | Data | Data |
+
+`;
+    setMarkdown(markdown + tableMarkdown);
+  };
+
   const renderMarkdown = (md) => {
     // Simple markdown to HTML conversion
     let html = md
@@ -242,21 +252,39 @@ export function VoAdmin() {
             <span className="md-status">{status}</span>
             <span className="md-count">{wordCount} words, {charCount} chars</span>
           </div>
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            style={{
-              background: '#555',
-              color: 'white',
-              border: 'none',
-              padding: '5px 10px',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-            onMouseOver={(e) => e.target.style.background = '#777'}
-            onMouseOut={(e) => e.target.style.background = '#555'}
-          >
-            {showPreview ? 'Edit' : 'Preview'}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={insertTable}
+              style={{
+                background: '#2ecc71',
+                color: 'white',
+                border: 'none',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+              onMouseOver={(e) => e.target.style.background = '#27ae60'}
+              onMouseOut={(e) => e.target.style.background = '#2ecc71'}
+            >
+              📊 Insert Table
+            </button>
+            <button
+              onClick={() => setShowPreview(!showPreview)}
+              style={{
+                background: '#555',
+                color: 'white',
+                border: 'none',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+              onMouseOver={(e) => e.target.style.background = '#777'}
+              onMouseOut={(e) => e.target.style.background = '#555'}
+            >
+              {showPreview ? 'Edit' : 'Preview'}
+            </button>
+          </div>
         </div>
 
         {!showPreview ? (
