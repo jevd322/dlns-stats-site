@@ -112,30 +112,40 @@ function renderMarkdown(md) {
   
   let html = md;
   
-  // Handle tables - look for pattern: | header | header | \n | --- | --- | \n | cell | cell |
-  html = html.replace(/\|(.+)\|\n\|[\s:-|]+\|\n((?:\|.+\|\n?)+)/g, (match) => {
-    const lines = match.trim().split('\n');
+  // Handle tables - match markdown table format
+  // Pattern: | header | header | \n | --- | --- | \n | cell | cell |
+  html = html.replace(/^\|(.+?)\|[ \t]*\n\|[ \t]*[-:| ]+\|[ \t]*\n((?:^\|.+?\|[ \t]*\n?)*)/gm, (match) => {
+    const lines = match.trim().split('\n').filter(line => line.trim());
+    
     if (lines.length < 2) return match;
     
-    const headerCells = lines[0].split('|').map(c => c.trim()).filter(c => c);
-    const bodyLines = lines.slice(2);
+    // Extract header
+    const headerLine = lines[0];
+    const headerCells = headerLine.split('|').map(c => c.trim()).filter(c => c && c !== '');
     
+    if (headerCells.length === 0) return match;
+    
+    // Build table
     let table = '<table><thead><tr>';
     headerCells.forEach(cell => {
       table += `<th>${cell}</th>`;
     });
     table += '</tr></thead><tbody>';
     
-    bodyLines.forEach(line => {
-      const cells = line.split('|').map(c => c.trim()).filter(c => c);
-      if (cells.length > 0) {
-        table += '<tr>';
-        cells.forEach(cell => {
-          table += `<td>${cell}</td>`;
-        });
-        table += '</tr>';
+    // Process body rows (skip separator row)
+    for (let i = 2; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes('|')) {
+        const cells = line.split('|').map(c => c.trim()).filter(c => c !== '');
+        if (cells.length > 0) {
+          table += '<tr>';
+          cells.forEach(cell => {
+            table += `<td>${cell}</td>`;
+          });
+          table += '</tr>';
+        }
       }
-    });
+    }
     
     table += '</tbody></table>';
     return table;
