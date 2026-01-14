@@ -53,6 +53,30 @@ const pageStyles = `
   .vo-content li {
     margin-bottom: 8px;
   }
+  .vo-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .vo-content table th {
+    background: rgba(255,255,255,0.05);
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 700;
+    border-bottom: 2px solid rgba(255,255,255,0.12);
+    color: #1db954;
+  }
+  .vo-content table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .vo-content table tr:last-child td {
+    border-bottom: none;
+  }
   .media-section {
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.08);
@@ -85,7 +109,43 @@ const pageStyles = `
 
 function renderMarkdown(md) {
   if (!md) return '';
-  let html = md
+  
+  // Handle tables first (before line breaks)
+  let html = md.replace(/^\|(.+)\|$/gm, (match) => {
+    return `__TABLE_ROW__${match}__TABLE_ROW__`;
+  });
+  
+  // Process tables
+  html = html.replace(/__TABLE_ROW__\|(.+?)\|__TABLE_ROW__\n__TABLE_ROW__\|[-:\s|]+\|__TABLE_ROW__\n((?:__TABLE_ROW__\|.+?\|__TABLE_ROW__\n?)+)/g, (match, header, _, rows) => {
+    const headers = header.split('|').map(h => h.trim()).filter(Boolean);
+    const rowLines = rows.split('\n').filter(r => r.includes('__TABLE_ROW__'));
+    
+    let table = '<table><thead><tr>';
+    headers.forEach(h => {
+      table += `<th>${h}</th>`;
+    });
+    table += '</tr></thead><tbody>';
+    
+    rowLines.forEach(row => {
+      const cells = row.replace(/__TABLE_ROW__/g, '').replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      if (cells.length > 0 && cells[0] !== '') {
+        table += '<tr>';
+        cells.forEach(cell => {
+          table += `<td>${cell}</td>`;
+        });
+        table += '</tr>';
+      }
+    });
+    
+    table += '</tbody></table>';
+    return table;
+  });
+  
+  // Remove any remaining table markers
+  html = html.replace(/__TABLE_ROW__/g, '');
+  
+  // Continue with other markdown
+  html = html
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
     .replace(/^# (.*$)/gim, '<h1>$1</h1>')
@@ -94,6 +154,7 @@ function renderMarkdown(md) {
     .replace(/!\[(.*?)\]\((.*?)\)/gim, '<img alt="$1" src="$2" />')
     .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>')
     .replace(/\n/gim, '<br />');
+  
   return html;
 }
 
