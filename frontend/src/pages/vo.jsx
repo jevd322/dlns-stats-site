@@ -108,27 +108,27 @@ const pageStyles = `
 `;
 
 function renderMarkdown(md) {
-  if (!md) return '';
+  if (!md || typeof md !== 'string') return '';
   
-  // Handle tables first (before line breaks)
-  let html = md.replace(/^\|(.+)\|$/gm, (match) => {
-    return `__TABLE_ROW__${match}__TABLE_ROW__`;
-  });
+  let html = md;
   
-  // Process tables
-  html = html.replace(/__TABLE_ROW__\|(.+?)\|__TABLE_ROW__\n__TABLE_ROW__\|[-:\s|]+\|__TABLE_ROW__\n((?:__TABLE_ROW__\|.+?\|__TABLE_ROW__\n?)+)/g, (match, header, _, rows) => {
-    const headers = header.split('|').map(h => h.trim()).filter(Boolean);
-    const rowLines = rows.split('\n').filter(r => r.includes('__TABLE_ROW__'));
+  // Handle tables - look for pattern: | header | header | \n | --- | --- | \n | cell | cell |
+  html = html.replace(/\|(.+)\|\n\|[\s:-|]+\|\n((?:\|.+\|\n?)+)/g, (match) => {
+    const lines = match.trim().split('\n');
+    if (lines.length < 2) return match;
+    
+    const headerCells = lines[0].split('|').map(c => c.trim()).filter(c => c);
+    const bodyLines = lines.slice(2);
     
     let table = '<table><thead><tr>';
-    headers.forEach(h => {
-      table += `<th>${h}</th>`;
+    headerCells.forEach(cell => {
+      table += `<th>${cell}</th>`;
     });
     table += '</tr></thead><tbody>';
     
-    rowLines.forEach(row => {
-      const cells = row.replace(/__TABLE_ROW__/g, '').replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-      if (cells.length > 0 && cells[0] !== '') {
+    bodyLines.forEach(line => {
+      const cells = line.split('|').map(c => c.trim()).filter(c => c);
+      if (cells.length > 0) {
         table += '<tr>';
         cells.forEach(cell => {
           table += `<td>${cell}</td>`;
@@ -140,9 +140,6 @@ function renderMarkdown(md) {
     table += '</tbody></table>';
     return table;
   });
-  
-  // Remove any remaining table markers
-  html = html.replace(/__TABLE_ROW__/g, '');
   
   // Continue with other markdown
   html = html
