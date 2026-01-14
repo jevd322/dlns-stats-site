@@ -124,13 +124,13 @@ function renderMarkdown(md) {
     // Extract header
     const headerLine = lines[0];
     const headerCells = headerLine.split('|').map(c => c.trim()).filter(c => c !== '');
-    
+
     if (headerCells.length === 0) return match;
     
     // Build table with centered headers
     let table = '<table style="width:100%; border-collapse:collapse; margin:20px 0;"><thead><tr style="background-color:#2ecc71;">';
     headerCells.forEach(cell => {
-      table += `<th style="padding:12px; text-align:center; border:1px solid #444; font-weight:bold;">${cell}</th>`;
+      table += `<th style="padding:12px; text-align:center; border:1px solid #444; font-weight:bold; color:#000;">${cell}</th>`;
     });
     table += '</tr></thead><tbody>';
     
@@ -142,7 +142,7 @@ function renderMarkdown(md) {
         if (cells.length > 0) {
           table += '<tr>';
           cells.forEach(cell => {
-            table += `<td style="padding:10px; text-align:center; border:1px solid #444;">${cell}</td>`;
+            table += `<td style="padding:10px; text-align:center; border:1px solid #444; color:#f1f1f1;">${cell}</td>`;
           });
           table += '</tr>';
         }
