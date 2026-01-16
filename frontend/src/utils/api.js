@@ -156,6 +156,38 @@ export async function saveVoContent(content) {
   return data.content;
 }
 
+// Progress-enabled save using XMLHttpRequest
+export function saveVoContentWithProgress(content, onProgress) {
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${VO_API_BASE}/content`);
+      xhr.responseType = 'json';
+      xhr.setRequestHeader('Content-Type', 'application/json');
+
+      xhr.upload.onprogress = (e) => {
+        try {
+          if (onProgress) onProgress(e.loaded || 0, e.total || 0);
+        } catch (_) {}
+      };
+
+      xhr.onload = () => {
+        const data = xhr.response || {};
+        if (xhr.status >= 200 && xhr.status < 300 && data.ok) {
+          resolve(data.content);
+        } else {
+          reject(new Error(data.error || 'Failed to save VO content'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error while saving content'));
+
+      xhr.send(JSON.stringify(content || {}));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 export async function uploadVoFile(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -167,6 +199,39 @@ export async function uploadVoFile(file) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to upload file');
   return data.file;
+}
+
+// Progress-enabled upload using XMLHttpRequest
+export function uploadVoFileWithProgress(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${VO_API_BASE}/upload`);
+      xhr.responseType = 'json';
+
+      xhr.upload.onprogress = (e) => {
+        try {
+          if (onProgress) onProgress(e.loaded || 0, e.total || 0);
+        } catch (_) {}
+      };
+
+      xhr.onload = () => {
+        const data = xhr.response || {};
+        if (xhr.status >= 200 && xhr.status < 300 && data.ok) {
+          resolve(data.file);
+        } else {
+          reject(new Error(data.error || 'Failed to upload file'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error while uploading file'));
+
+      const formData = new FormData();
+      formData.append('file', file);
+      xhr.send(formData);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 /**

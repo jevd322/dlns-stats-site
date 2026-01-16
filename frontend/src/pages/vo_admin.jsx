@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { fetchVoContent, saveVoContent, uploadVoFile } from '../utils/api';
+import { fetchVoContent, saveVoContent, saveVoContentWithProgress, uploadVoFile, uploadVoFileWithProgress } from '../utils/api';
 
 const editorStyles = `
   .md-editor-container {
@@ -95,6 +95,27 @@ const editorStyles = `
     cursor: pointer;
     font-size: 11px;
   }
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #3498db;
+    transition: width 0.2s ease;
+  }
+  .progress-text {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 4px;
+    text-align: right;
+  }
 `;
 
 export function VoAdmin() {
@@ -104,6 +125,7 @@ export function VoAdmin() {
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [assets, setAssets] = useState({ zip: null, images: [], videos: [] });
+  const [progress, setProgress] = useState({ save: 0, zip: 0, image: 0, video: 0 });
   const autosaveTimerRef = useRef(null);
   const lastSavedContentRef = useRef('');
 
@@ -147,8 +169,12 @@ export function VoAdmin() {
       autosaveTimerRef.current = setTimeout(async () => {
         try {
           setStatus('Saving...');
-          await saveVoContent({ markdown, assets });
+          await saveVoContentWithProgress({ markdown, assets }, (loaded, total) => {
+            const pct = total ? Math.round((loaded / total) * 100) : (loaded ? 100 : 0);
+            setProgress(prev => ({ ...prev, save: pct }));
+          });
           setStatus('Saved');
+          setProgress(prev => ({ ...prev, save: 0 }));
           lastSavedContentRef.current = markdown;
         } catch (err) {
           setStatus('Error');
@@ -167,8 +193,12 @@ export function VoAdmin() {
   const handleSave = async () => {
     try {
       setStatus('Saving...');
-      await saveVoContent({ markdown, assets });
+      await saveVoContentWithProgress({ markdown, assets }, (loaded, total) => {
+        const pct = total ? Math.round((loaded / total) * 100) : (loaded ? 100 : 0);
+        setProgress(prev => ({ ...prev, save: pct }));
+      });
       setStatus('Saved');
+      setProgress(prev => ({ ...prev, save: 0 }));
       lastSavedContentRef.current = markdown;
     } catch (err) {
       setStatus('Error');
@@ -183,20 +213,36 @@ export function VoAdmin() {
       if (type === 'zip') {
         const file = files[0];
         setStatus('Uploading...');
-        const uploadedFile = await uploadVoFile(file);
+        const uploadedFile = await uploadVoFileWithProgress(file, (loaded, total) => {
+          const pct = total ? Math.round((loaded / total) * 100) : (loaded ? 100 : 0);
+          setProgress(prev => ({ ...prev, zip: pct }));
+        });
         setAssets(prev => ({ ...prev, zip: uploadedFile }));
+        setProgress(prev => ({ ...prev, zip: 0 }));
         setStatus('Saved');
       } else if (type === 'image' || type === 'video') {
         // Upload multiple files
         setStatus('Uploading...');
-        const uploadPromises = Array.from(files).map(file => uploadVoFile(file));
-        const uploadedFiles = await Promise.all(uploadPromises);
-        
         const key = type === 'image' ? 'images' : 'videos';
+        const keyProg = type === 'image' ? 'image' : 'video';
+
+        const uploadedFiles = [];
+        const fileArray = Array.from(files);
+        for (let i = 0; i < fileArray.length; i++) {
+          const f = fileArray[i];
+          const result = await uploadVoFileWithProgress(f, (loaded, total) => {
+            const filePct = total ? (loaded / total) * 100 : (loaded ? 100 : 0);
+            const overall = Math.round(((i + filePct / 100) / fileArray.length) * 100);
+            setProgress(prev => ({ ...prev, [keyProg]: overall }));
+          });
+          uploadedFiles.push(result);
+        }
+        
         setAssets(prev => ({ 
           ...prev, 
           [key]: [...(prev[key] || []), ...uploadedFiles]
         }));
+        setProgress(prev => ({ ...prev, [keyProg]: 0 }));
         setStatus('Saved');
       }
     } catch (err) {
@@ -298,6 +344,16 @@ export function VoAdmin() {
           <div className="md-preview" dangerouslySetInnerHTML={{ __html: renderMarkdown(markdown) }} />
         )}
 
+        {/* Save progress */}
+        {progress.save > 0 && (
+          <div style={{ marginTop: '8px' }}>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${progress.save}%`, background: '#3498db' }}></div>
+            </div>
+            <div className="progress-text">Saving... {progress.save}%</div>
+          </div>
+        )}
+
         {/* Asset Upload Section */}
         <div className="asset-upload-section">
           <div className="upload-box">
@@ -309,6 +365,14 @@ export function VoAdmin() {
               </div>
               <input type="file" accept=".zip" onChange={(e) => handleFileUpload('zip', e.target.files)} />
             </label>
+            {progress.zip > 0 && (
+              <div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress.zip}%`, background: '#2ecc71' }}></div>
+                </div>
+                <div className="progress-text">Uploading ZIP... {progress.zip}%</div>
+              </div>
+            )}
             {assets.zip && (
               <div className="asset-list">
                 <div className="asset-item">
@@ -328,6 +392,14 @@ export function VoAdmin() {
               </div>
               <input type="file" accept="image/*" multiple onChange={(e) => handleFileUpload('image', e.target.files)} />
             </label>
+            {progress.image > 0 && (
+              <div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress.image}%`, background: '#2ecc71' }}></div>
+                </div>
+                <div className="progress-text">Uploading Images... {progress.image}%</div>
+              </div>
+            )}
             {(assets.images || []).length > 0 && (
               <div className="asset-list">
                 {(assets.images || []).map((img, idx) => (
@@ -349,6 +421,14 @@ export function VoAdmin() {
               </div>
               <input type="file" accept="video/*" multiple onChange={(e) => handleFileUpload('video', e.target.files)} />
             </label>
+            {progress.video > 0 && (
+              <div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress.video}%`, background: '#2ecc71' }}></div>
+                </div>
+                <div className="progress-text">Uploading Videos... {progress.video}%</div>
+              </div>
+            )}
             {(assets.videos || []).length > 0 && (
               <div className="asset-list">
                 {(assets.videos || []).map((vid, idx) => (
