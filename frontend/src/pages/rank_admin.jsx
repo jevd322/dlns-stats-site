@@ -7,7 +7,10 @@ const RANK_ORDER = [
 ];
 
 const getRankIndex = (rank) => {
-  const idx = RANK_ORDER.indexOf(rank);
+  if (!rank) return 999;
+  // Extract rank name without badge number (e.g., "Phantom 5" -> "Phantom")
+  const rankName = rank.split(/\s+/)[0];
+  const idx = RANK_ORDER.indexOf(rankName);
   return idx === -1 ? 999 : idx;
 };
 
