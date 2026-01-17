@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { rankListPlayers, rankAssignTeam, rankClearAll } from '../utils/api';
 
+const RANK_ORDER = [
+  'Initiate', 'Seeker', 'Alchemist', 'Arcanist', 'Ritualist', 'Emissary',
+  'Archon', 'Oracle', 'Phantom', 'Ascendant', 'Eternus', 'Obscurus'
+];
+
+const getRankIndex = (rank) => {
+  const idx = RANK_ORDER.indexOf(rank);
+  return idx === -1 ? 999 : idx;
+};
+
 const formatTime = (ts) => {
   if (!ts) return '—';
   const d = new Date(ts * 1000);
@@ -78,7 +88,7 @@ export function RankAdmin() {
       return (p.rank || '').toLowerCase().includes(f) || (p.username || '').toLowerCase().includes(f) || String(p.id).includes(f);
     });
     if (sortBy === 'time') list.sort((a, b) => (b.submitted_at || 0) - (a.submitted_at || 0));
-    if (sortBy === 'rank') list.sort((a, b) => String(a.rank).localeCompare(String(b.rank)));
+    if (sortBy === 'rank') list.sort((a, b) => getRankIndex(a.rank) - getRankIndex(b.rank));
     if (sortBy === 'name') list.sort((a, b) => String(a.username).localeCompare(String(b.username)));
     return list;
   }, [players, filter, sortBy]);
