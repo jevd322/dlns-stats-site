@@ -213,9 +213,9 @@ export function VoHub() {
                       {(assets.zip.size / 1024 / 1024).toFixed(2)} MB
                     </div>
                   </div>
-                  <button style={{ background: 'linear-gradient(90deg, #1db954, #1ed760)', border: 'none', color: '#000', padding: '10px 16px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>
+                  <a href={`/vo/uploads/${assets.zip.name}`} download style={{ background: 'linear-gradient(90deg, #1db954, #1ed760)', border: 'none', color: '#000', padding: '10px 16px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', textDecoration: 'none', display: 'inline-block' }}>
                     Download
-                  </button>
+                  </a>
                 </div>
               </div>
             )}

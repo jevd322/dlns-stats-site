@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 import requests
-from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory
+from flask import Blueprint, abort, jsonify, render_template, request, send_from_directory, send_file
 
 from utils.auth import get_current_user
 
@@ -186,6 +186,22 @@ def api_vo_upload():
 @vo_bp.get("/uploads/<path:filename>")
 def vo_uploads(filename):
     """Serve uploaded files (images, videos, zip)."""
+    file_path = VO_UPLOADS_DIR / filename
+    
+    # Security check - ensure file exists and is in the uploads directory
+    if not file_path.exists() or not file_path.is_file():
+        abort(404)
+    
+    # For ZIP files, force download
+    if filename.lower().endswith('.zip'):
+        return send_file(
+            str(file_path),
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/zip'
+        )
+    
+    # For other files, serve inline
     return send_from_directory(VO_UPLOADS_DIR, filename)
 
 
