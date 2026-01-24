@@ -29,7 +29,7 @@ DEFAULT_HERO_CACHE_PATH = DEFAULT_DATA_DIR / "hero_names.json"
 # Deadlock + Steam APIs
 MATCH_METADATA_URL = "https://api.deadlock-api.com/v1/matches/{match_id}/metadata"
 HERO_DETAILS_URL = (
-    "https://assets.deadlock-api.com/v2/heroes/{hero_id}?language=english&client_version=5902"
+    "https://assets.deadlock-api.com/v2/heroes/{hero_id}?language=english&client_version=6128"
 )
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
 
