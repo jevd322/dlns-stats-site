@@ -18,7 +18,7 @@ TEAMS_FILE = DATA_DIR / "team_assignment.json"        # { discord_id: 0|1 }
 Hardcoded admin list for Ranker dev panel. Add Discord user IDs here.
 """
 RANKER_OWNER_IDS: set[str] = {
-    "950380630905069578", "285203317162770442", "545930766367064086"
+    "950380630905069578", "285203317162770442", "545930766367064086", "121929150184292354"
 }
 
 def is_ranker_admin() -> bool:
