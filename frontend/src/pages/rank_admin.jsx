@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { rankListPlayers, rankAssignTeam, rankClearAll } from '../utils/api';
+import { rankListPlayers, rankAssignTeam, rankClearAll, rankRemovePlayer } from '../utils/api';
 
 const RANK_ORDER = [
   'Initiate', 'Seeker', 'Alchemist', 'Arcanist', 'Ritualist', 'Emissary',
@@ -119,6 +119,16 @@ export function RankAdmin() {
     }
   };
 
+  const removePlayer = async (p) => {
+    if (!confirm(`Remove ${p.username || p.id} from the list?`)) return;
+    try {
+      await rankRemovePlayer(p.id);
+      await load();
+    } catch (e) {
+      alert(e.message || 'Failed to remove player');
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#121212', color: '#ffffff' }}>
       <header style={{
@@ -168,6 +178,14 @@ export function RankAdmin() {
                 <>
                   <button onClick={() => assign(p, 0)} style={{ background: '#f3b53f', border: 'none', color: '#000', borderRadius: 6, padding: '6px 10px', fontWeight: 700 }}>Amber</button>
                   <button onClick={() => assign(p, 1)} style={{ background: '#4fb5ff', border: 'none', color: '#000', borderRadius: 6, padding: '6px 10px', fontWeight: 700 }}>Sapphire</button>
+                  <button
+                    onClick={() => removePlayer(p)}
+                    title="Remove player"
+                    aria-label={`Remove ${p.username || p.id}`}
+                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: 6, padding: '6px 10px', fontWeight: 700 }}
+                  >
+                    X
+                  </button>
                 </>
               } />
             ))}

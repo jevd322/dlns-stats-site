@@ -280,3 +280,14 @@ export async function rankClearAll() {
   if (!res.ok) throw new Error(data.error || 'Failed to clear');
   return data;
 }
+
+export async function rankRemovePlayer(id) {
+  const res = await fetch(`${RANK_API_BASE}/remove`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to remove player');
+  return data;
+}

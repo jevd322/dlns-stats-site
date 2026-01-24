@@ -1,4 +1,4 @@
-import{r as p,v as x,j as e,e as h,R as b}from"./chunks/api.js";const f=`
+import{r as p,w as x,j as e,e as h,R as b}from"./chunks/api.js";const f=`
   .vo-content {
     line-height: 1.8;
     font-size: 16px;

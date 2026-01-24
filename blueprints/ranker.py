@@ -160,3 +160,20 @@ def api_clear():
     _save_json(SUBMISSIONS_FILE, {})
     _save_json(TEAMS_FILE, {})
     return jsonify({"ok": True})
+
+
+@ranker_bp.post("/api/remove")
+@require_ranker_admin
+def api_remove_player():
+    """Remove a single player submission (and any team assignment)."""
+    payload = request.get_json(force=True, silent=True) or {}
+    uid = str(payload.get("id") or "")
+    if not uid:
+        return jsonify({"error": "Missing player id"}), 400
+    subs = _load_json(SUBMISSIONS_FILE)
+    teams = _load_json(TEAMS_FILE)
+    subs.pop(uid, None)
+    teams.pop(uid, None)
+    _save_json(SUBMISSIONS_FILE, subs)
+    _save_json(TEAMS_FILE, teams)
+    return jsonify({"ok": True})
