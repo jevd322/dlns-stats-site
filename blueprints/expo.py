@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -26,7 +27,7 @@ HERO_DETAILS_URL = (
     "https://assets.deadlock-api.com/v2/heroes/{hero_id}?language=english&client_version=5902"
 )
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
-STEAM_API_KEY = "12B92B70D84E28131ADF84C9D6B03B8E"
+STEAM_API_KEY = os.getenv("STEAM_API_KEY", "")
 
 HEADERS = [
     "Player Name",
@@ -321,6 +322,10 @@ def process_match():  # type: ignore
 
     def generate():
         try:
+            if not STEAM_API_KEY:
+                yield json.dumps({"type": "error", "message": "Error: STEAM_API_KEY missing. Set it in .env."}) + "\n"
+                return
+
             match_input = str(payload.get("match_id", "")).strip()
             if not match_input:
                 yield json.dumps({"type": "error", "message": "Error: Match ID(s) required."}) + "\n"
@@ -328,44 +333,53 @@ def process_match():  # type: ignore
 
             # Check if batch processing (comma detected)
             if "," in match_input:
-                yield json.dumps({"type": "batch_start", "message": "Batch processing detected..."}) + "\n"
+                yield json.dumps({"type": "batch_start", "message": "Batch processing detected...", "percent": 0}) + "\n"
                 match_ids = [mid.strip() for mid in match_input.split(",") if mid.strip()]
                 invalid_ids = [mid for mid in match_ids if not mid.isdigit()]
                 if invalid_ids:
                     yield json.dumps({"type": "error", "message": f"Error: Invalid match IDs: {', '.join(invalid_ids)}"}) + "\n"
                     return
 
-                yield json.dumps({"type": "log", "message": f"Processing {len(match_ids)} matches..."}) + "\n"
+                total_matches = len(match_ids)
+                steps_per_match = 4
+                total_steps = max(total_matches * steps_per_match, 1)
+                yield json.dumps({"type": "log", "message": f"Processing {total_matches} matches...", "percent": 0}) + "\n"
                 all_rows = []
 
                 for i, match_id in enumerate(match_ids):
                     try:
-                        yield json.dumps({"type": "progress", "message": f"Processing match {i+1}/{len(match_ids)}: {match_id}..."}) + "\n"
+                        base_step = i * steps_per_match
+                        overall_percent = int((base_step / total_steps) * 100)
+                        yield json.dumps({"type": "progress", "message": f"Processing match {i+1}/{total_matches}: {match_id}...", "percent": overall_percent}) + "\n"
 
                         # Fetch with cache
                         info = fetch_match_info_cached(int(match_id))
                         # Log unified fetch message
-                        yield json.dumps({"type": "progress", "message": "Fetched Cache Match"}) + "\n"
+                        overall_percent = int(((base_step + 1) / total_steps) * 100)
+                        yield json.dumps({"type": "progress", "message": "Fetched Cache Match", "percent": overall_percent}) + "\n"
 
                         players = info.get("players", []) or []
-                        yield json.dumps({"type": "progress", "message": f"Match {match_id}: Found {len(players)} players. Resolving names..."}) + "\n"
+                        overall_percent = int(((base_step + 2) / total_steps) * 100)
+                        yield json.dumps({"type": "progress", "message": f"Match {match_id}: Found {len(players)} players. Resolving names...", "percent": overall_percent}) + "\n"
 
                         # Always resolve names from JSON players (fresh)
                         account_ids_all = [p.get("account_id") for p in players if p.get("account_id") is not None]
                         name_map = resolve_player_names_steam(account_ids_all, STEAM_API_KEY)
 
-                        yield json.dumps({"type": "progress", "message": f"Match {match_id}: Parsing final stats..."}) + "\n"
+                        overall_percent = int(((base_step + 3) / total_steps) * 100)
+                        yield json.dumps({"type": "progress", "message": f"Match {match_id}: Parsing final stats...", "percent": overall_percent}) + "\n"
                         rows = build_rows(info, name_map, match_id)
                         all_rows.extend(rows)
 
-                        yield json.dumps({"type": "progress", "message": f"Match {match_id}: Complete ({len(rows)} players)"}) + "\n"
+                        overall_percent = int(((base_step + 4) / total_steps) * 100)
+                        yield json.dumps({"type": "progress", "message": f"Match {match_id}: Complete ({len(rows)} players)", "percent": overall_percent}) + "\n"
 
                     except requests.HTTPError as e:
                         yield json.dumps({"type": "progress", "message": f"Match {match_id}: HTTP error - {e}"}) + "\n"
                     except Exception as e:
                         yield json.dumps({"type": "progress", "message": f"Match {match_id}: Error - {e}"}) + "\n"
 
-                yield json.dumps({"type": "log", "message": "Preparing combined CSV export..."}) + "\n"
+                yield json.dumps({"type": "log", "message": "Preparing combined CSV export...", "percent": 98}) + "\n"
                 csv_text = rows_to_delimited(all_rows, ",", include_header=True, use_batch_headers=True)
                 tsv_text = rows_to_delimited(all_rows, "\t", include_header=False, use_batch_headers=True)
                 tsv_no_match_id = rows_to_tsv_no_match_id(all_rows, include_header=False)
@@ -381,6 +395,7 @@ def process_match():  # type: ignore
                     "total_players": len(all_rows),
                 }
                 yield json.dumps(result) + "\n"
+                yield json.dumps({"type": "progress", "message": "Batch export ready.", "percent": 100}) + "\n"
 
             else:
                 # Single match processing
@@ -388,26 +403,29 @@ def process_match():  # type: ignore
                     yield json.dumps({"type": "error", "message": "Error: Match ID must be an integer."}) + "\n"
                     return
 
+                total_steps = 4
+                yield json.dumps({"type": "progress", "message": "Starting match processing...", "percent": 0}) + "\n"
                 # Fetch with cache
                 info = fetch_match_info_cached(int(match_input))
-                yield json.dumps({"type": "log", "message": "Fetched Cache Match"}) + "\n"
+                yield json.dumps({"type": "log", "message": "Fetched Cache Match", "percent": int((1 / total_steps) * 100)}) + "\n"
 
                 players = info.get("players", []) or []
-                yield json.dumps({"type": "log", "message": f"Found {len(players)} players. Resolving names via Steam..."}) + "\n"
+                yield json.dumps({"type": "log", "message": f"Found {len(players)} players. Resolving names via Steam...", "percent": int((2 / total_steps) * 100)}) + "\n"
 
                 # Resolve names from JSON players (fresh each time)
                 account_ids_all = [p.get("account_id") for p in players if p.get("account_id") is not None]
                 name_map = resolve_player_names_steam(account_ids_all, STEAM_API_KEY)
 
-                yield json.dumps({"type": "log", "message": "Parsing final stats..."}) + "\n"
+                yield json.dumps({"type": "log", "message": "Parsing final stats...", "percent": int((3 / total_steps) * 100)}) + "\n"
                 rows = build_rows(info, name_map)
 
-                yield json.dumps({"type": "log", "message": "Preparing exports..."}) + "\n"
+                yield json.dumps({"type": "log", "message": "Preparing exports...", "percent": int((4 / total_steps) * 100)}) + "\n"
                 csv_text = rows_to_delimited(rows, ",", include_header=True)
                 tsv_text = rows_to_delimited(rows, "\t", include_header=False)
 
                 result = {"type": "result", "headers": HEADERS, "rows": rows, "csv": csv_text, "tsv": tsv_text}
                 yield json.dumps(result) + "\n"
+                yield json.dumps({"type": "progress", "message": "Match export ready.", "percent": 100}) + "\n"
 
         except requests.HTTPError as e:
             yield json.dumps({"type": "error", "message": f"HTTP error: {e}"}) + "\n"
