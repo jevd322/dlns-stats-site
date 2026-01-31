@@ -570,6 +570,25 @@ export function SoundLibrary() {
     background: 'linear-gradient(90deg, rgba(29,185,84,0.6), rgba(255,255,255,0.25))',
   };
 
+  const cardStyle = {
+    background: 'rgba(8, 10, 16, 0.55)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '12px',
+    padding: '12px',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+  };
+
+  const fieldStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    background: 'rgba(0,0,0,0.35)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    color: '#ffffff',
+    fontSize: '13px',
+    lineHeight: '1.4',
+  };
+
   // Setup gain node once
   useEffect(() => {
     if (!audioRef.current || gainNodeRef.current) return;
@@ -1279,7 +1298,7 @@ export function SoundLibrary() {
 
               {/* Record Panel */}
               {recordPanelVisible && (
-                <div className="record-panel visible" style={{ position: 'relative', background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(29, 185, 84, 0.05))', border: '2px solid rgba(29, 185, 84, 0.3)', borderRadius: '16px', padding: '24px', display: 'flex', gap: '20px', animation: 'slideIn 0.4s ease' }}>
+                <div className="record-panel visible" style={{ position: 'relative', background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.08), rgba(13, 16, 24, 0.2))', border: '1px solid rgba(29, 185, 84, 0.25)', borderRadius: '16px', padding: '22px', display: 'flex', gap: '16px', animation: 'slideIn 0.4s ease', boxShadow: '0 14px 36px rgba(0,0,0,0.35)' }}>
                   <div style={{ width: '100%' }}>
                     <div style={{ fontWeight: 700, fontSize: '16px', color: '#1db954', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                       🎙️ Record Your Audio
@@ -1303,13 +1322,13 @@ export function SoundLibrary() {
 
                     {recorderMode === 'record' && (
                       <>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div style={{ ...cardStyle, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
                           <div>
                             <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Microphone</label>
                             <select 
                               value={selectedDevice} 
                               onChange={(e) => setSelectedDevice(e.target.value)}
-                              style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255, 255, 255, 0.14)', color: '#ffffff', fontSize: '13px', lineHeight: '1.4' }}
+                              style={fieldStyle}
                             >
                               {devices.map(d => (
                                 <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>
@@ -1328,7 +1347,7 @@ export function SoundLibrary() {
                           </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div style={{ ...cardStyle, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
                           <div>
                             <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600, cursor: 'pointer' }}>
                               <input
@@ -1345,7 +1364,7 @@ export function SoundLibrary() {
                               value={countdownSeconds}
                               onChange={(e) => setCountdownSeconds(Number(e.target.value))}
                               disabled={!countdownEnabled}
-                              style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255, 255, 255, 0.14)', color: countdownEnabled ? '#ffffff' : '#7a7a82', fontSize: '13px', lineHeight: '1.4' }}
+                              style={{ ...fieldStyle, color: countdownEnabled ? '#ffffff' : '#7a7a82' }}
                             >
                               {[1,2,3,4,5].map((s) => (
                                 <option key={s} value={s}>{s} sec</option>
@@ -1354,7 +1373,8 @@ export function SoundLibrary() {
                           </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                        <div style={{ fontSize: '12px', color: '#7a7a82', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px' }}>Playback</div>
+                        <div style={{ ...cardStyle, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                           <div>
                             {countdownRemaining > 0 && (
                               <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
@@ -1363,21 +1383,21 @@ export function SoundLibrary() {
                             )}
                             <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Playback volume</label>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ flex: 1 }} />
-                                disabled={isRecording || countdownRemaining > 0}
+                              <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} disabled={isRecording || countdownRemaining > 0} style={{ ...sliderStyle, flex: 1 }} />
+                              <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{volume}%</span>
                             </div>
                           </div>
                           <div>
                             <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Volume boost (dB)</label>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <input type="range" min="0" max="12" value={boostDb} onChange={(e) => setBoostDb(Number(e.target.value))} style={{ flex: 1 }} />
+                              <input type="range" min="0" max="12" value={boostDb} onChange={(e) => setBoostDb(Number(e.target.value))} style={{ ...sliderStyle, flex: 1 }} />
                               <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{boostDb} dB</span>
                             </div>
                           </div>
                         </div>
 
                         {/* Advanced Audio Processing */}
-                        <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+                        <div style={{ ...cardStyle, marginBottom: '16px' }}>
                           <button
                             onClick={() => setShowAdvancedAudio(!showAdvancedAudio)}
                             style={{ width: '100%', background: 'transparent', border: 'none', color: '#1db954', textAlign: 'left', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: '0' }}
@@ -1391,7 +1411,7 @@ export function SoundLibrary() {
                                 value={advancedImportText}
                                 onChange={(e) => setAdvancedImportText(e.target.value)}
                                 placeholder="Paste preset string"
-                                style={{ width: '100%', background: 'rgba(0,0,0,0.35)', color: '#ffffff', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', padding: '8px 10px', fontSize: '12px', lineHeight: 1.4 }}
+                                style={fieldStyle}
                               />
                               <button
                                 onClick={handleImportAdvanced}
