@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Header } from '../components/Header';
 import { fetchTree, fetchStats, fetchRandom, getMe, checkExists, uploadRecording, fetchAllStatuses } from '../utils/api';
 import { showSuccess, showError, showInfo } from '../utils/toast';
+import { AudioProcessor } from '../utils/audioProcessor';
 
 export function SoundLibrary() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -37,6 +38,25 @@ export function SoundLibrary() {
   const fileInputRef = useRef(null);
   const [noiseSuppression, setNoiseSuppression] = useState(true);
   
+  // Audio processing state
+  const [gateThreshold, setGateThreshold] = useState(-40);
+  const [gateHoldTime, setGateHoldTime] = useState(100);
+  const [compression, setCompression] = useState(4);
+  const [lowPassFreq, setLowPassFreq] = useState(80);
+  const [midGain, setMidGain] = useState(0);
+  const [highGain, setHighGain] = useState(0);
+  const [outputVolume, setOutputVolume] = useState(0);
+  const [showAdvancedAudio, setShowAdvancedAudio] = useState(false);
+  
+  // Effects state
+  const [delayAmount, setDelayAmount] = useState(0);
+  const [delayTime, setDelayTime] = useState(250);
+  const [delayFeedback, setDelayFeedback] = useState(30);
+  const [reverbAmount, setReverbAmount] = useState(0);
+  const [distortionAmount, setDistortionAmount] = useState(0);
+  const [pitchModAmount, setPitchModAmount] = useState(0);
+  const [pitchModFreq, setPitchModFreq] = useState(5);
+  
   const audioRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
@@ -49,6 +69,8 @@ export function SoundLibrary() {
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
   const recordedUrlRef = useRef(null);
+  const audioProcessorRef = useRef(null);
+  const processorUpdateIntervalRef = useRef(null);
 
   const allFolderPaths = useMemo(() => {
     const paths = [];
@@ -213,6 +235,24 @@ export function SoundLibrary() {
     gain.gain.value = base * boostLinear;
   }, [volume, boostDb]);
 
+  // Update audio processor settings in real-time during recording
+  useEffect(() => {
+    const processor = audioProcessorRef.current;
+    if (!processor || !isRecording) return;
+    
+    processor.setGateThreshold(gateThreshold);
+    processor.setGateHoldTime(gateHoldTime);
+    processor.setCompression(compression);
+    processor.setLowPass(lowPassFreq);
+    processor.setMid(midGain);
+    processor.setHigh(highGain);
+    processor.setOutputVolume(outputVolume);
+    processor.setDelay(delayAmount, delayTime, delayFeedback);
+    processor.setReverb(reverbAmount);
+    processor.setDistortion(distortionAmount);
+    processor.setPitchModulation(pitchModAmount, pitchModFreq);
+  }, [gateThreshold, gateHoldTime, compression, lowPassFreq, midGain, highGain, outputVolume, delayAmount, delayTime, delayFeedback, reverbAmount, distortionAmount, pitchModAmount, pitchModFreq, isRecording]);
+
   const loadStats = async () => {
     try {
       const data = await fetchStats();
@@ -316,10 +356,25 @@ export function SoundLibrary() {
 
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
+      
+      // Create audio processor
+      const processor = new AudioProcessor(audioContext);
+      processor.setGateThreshold(gateThreshold);
+      processor.setGateHoldTime(gateHoldTime);
+      processor.setCompression(compression);
+      processor.setLowPass(lowPassFreq);
+      processor.setMid(midGain);
+      processor.setHigh(highGain);
+      processor.setOutputVolume(outputVolume);
+      processor.setDelay(delayAmount, delayTime, delayFeedback);
+      processor.setReverb(reverbAmount);
+      processor.setDistortion(distortionAmount);
+      processor.setPitchModulation(pitchModAmount, pitchModFreq);
+      
+      audioProcessorRef.current = processor;
+      
+      source.connect(processor.destination);
+      source.connect(processor.getAnalyser()); // Direct connection for immediate display
 
       recordedChunksRef.current = [];
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -340,6 +395,7 @@ export function SoundLibrary() {
         setRecordSize(formatBytes(blob.size));
         clearInterval(durationIntervalRef.current);
         clearInterval(levelIntervalRef.current);
+        clearInterval(processorUpdateIntervalRef.current);
         setAudioLevel(0);
       };
 
@@ -356,13 +412,15 @@ export function SoundLibrary() {
         setRecordDuration(`${mins}:${secs.toString().padStart(2, '0')}`);
       }, 100);
 
-      // Level meter
+      // Level meter with gate processing
       levelIntervalRef.current = setInterval(() => {
-        if (analyserRef.current) {
-          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-          setAudioLevel(Math.min(100, (average / 255) * 100));
+        if (processor) {
+          const level = processor.getLevel();
+          setAudioLevel(Math.min(100, level));
+          
+          // Update gate with current level
+          const levelLinear = level / 100;
+          processor.updateGate(levelLinear);
         }
       }, 50);
 
@@ -772,6 +830,103 @@ export function SoundLibrary() {
                               <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{boostDb} dB</span>
                             </div>
                           </div>
+                        </div>
+
+                        {/* Advanced Audio Processing */}
+                        <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
+                          <button
+                            onClick={() => setShowAdvancedAudio(!showAdvancedAudio)}
+                            style={{ width: '100%', background: 'transparent', border: 'none', color: '#1db954', textAlign: 'left', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '0' }}
+                          >
+                            {showAdvancedAudio ? '▼' : '▶'} Advanced Audio Processing
+                          </button>
+
+                          {showAdvancedAudio && (
+                            <div style={{ marginTop: '12px', display: 'grid', gap: '12px' }}>
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Noise Gate Threshold: {gateThreshold} dB</label>
+                                <input type="range" min="-100" max="0" value={gateThreshold} onChange={(e) => setGateThreshold(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Lower = more aggressive noise reduction</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Gate Hold Time: {gateHoldTime} ms</label>
+                                <input type="range" min="10" max="500" value={gateHoldTime} onChange={(e) => setGateHoldTime(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Time gate stays open after signal drops below threshold</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Compression: {compression}:1</label>
+                                <input type="range" min="1" max="12" value={compression} onChange={(e) => setCompression(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Reduces volume peaks for consistent levels</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Low Pass Filter: {lowPassFreq} Hz</label>
+                                <input type="range" min="20" max="500" value={lowPassFreq} onChange={(e) => setLowPassFreq(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Removes rumble and background noise</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Mid Boost: {midGain > 0 ? '+' : ''}{midGain} dB</label>
+                                <input type="range" min="-12" max="12" value={midGain} onChange={(e) => setMidGain(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Presence and clarity (3kHz)</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>High Boost: {highGain > 0 ? '+' : ''}{highGain} dB</label>
+                                <input type="range" min="-12" max="12" value={highGain} onChange={(e) => setHighGain(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Brightness and detail (8kHz)</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Output Volume: {outputVolume > 0 ? '+' : ''}{outputVolume} dB</label>
+                                <input type="range" min="-20" max="12" value={outputVolume} onChange={(e) => setOutputVolume(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Final output level</div>
+                              </div>
+
+                              {/* Divider */}
+                              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '8px 0' }} />
+
+                              {/* Effects Section */}
+                              <div style={{ fontWeight: 600, color: '#1db954', fontSize: '11px', marginBottom: '8px' }}>🎛️ EFFECTS</div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Delay/Echo: {delayAmount}%</label>
+                                <input type="range" min="0" max="100" value={delayAmount} onChange={(e) => setDelayAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                  <div>
+                                    Time: <input type="range" min="50" max="1000" value={delayTime} onChange={(e) => setDelayTime(Number(e.target.value))} style={{ width: '100%', height: '6px' }} /> {delayTime}ms
+                                  </div>
+                                  <div>
+                                    Feedback: <input type="range" min="0" max="80" value={delayFeedback} onChange={(e) => setDelayFeedback(Number(e.target.value))} style={{ width: '100%', height: '6px' }} /> {delayFeedback}%
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Reverb: {reverbAmount}%</label>
+                                <input type="range" min="0" max="100" value={reverbAmount} onChange={(e) => setReverbAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Room ambience and space</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Distortion: {distortionAmount}%</label>
+                                <input type="range" min="0" max="100" value={distortionAmount} onChange={(e) => setDistortionAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Saturation and edge</div>
+                              </div>
+
+                              <div>
+                                <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Pitch Modulation: {pitchModAmount}%</label>
+                                <input type="range" min="0" max="100" value={pitchModAmount} onChange={(e) => setPitchModAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px', display: 'grid', gridTemplateColumns: '1fr' }}>
+                                  <div>
+                                    Rate: <input type="range" min="1" max="20" value={pitchModFreq} onChange={(e) => setPitchModFreq(Number(e.target.value))} style={{ width: '100%', height: '6px' }} /> {pitchModFreq} Hz
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '16px' }}>
