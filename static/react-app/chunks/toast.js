@@ -24,4 +24,4 @@ let o=null;function d(){return o||(o=document.createElement("div"),o.id="toast-c
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(400px); opacity: 0; }
       }
-    `,document.head.appendChild(n)}a.appendChild(e),setTimeout(()=>{e.style.animation="slideOut 0.3s ease",setTimeout(()=>{e.remove()},300)},c)}function f(t){s(t,"success")}function l(t){s(t,"error",4e3)}function p(t){s(t,"info")}export{p as a,f as b,l as s};
+    `,document.head.appendChild(n)}a.appendChild(e),setTimeout(()=>{e.style.animation="slideOut 0.3s ease",setTimeout(()=>{e.remove()},300)},c)}function f(t){s(t,"success")}function l(t){s(t,"error",4e3)}function p(t){s(t,"info")}export{f as a,p as b,l as s};

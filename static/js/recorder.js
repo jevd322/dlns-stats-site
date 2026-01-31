@@ -24,6 +24,30 @@ const statusEl = document.getElementById("recordStatus");
 const recordedAudio = document.getElementById("recordedAudio");
 const levelMeterFill = document.getElementById("levelMeter");
 
+const MIC_STORAGE_KEY = "wavebox.selectedMic";
+
+function getSavedMicId() {
+  try {
+    return localStorage.getItem(MIC_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveMicId(id) {
+  try {
+    if (id) {
+      localStorage.setItem(MIC_STORAGE_KEY, id);
+    }
+  } catch {}
+}
+
+function setSelectedMic(id) {
+  if (!id) return;
+  micSelect.value = id;
+  saveMicId(id);
+}
+
 // === Styled Console Logging Helper ===
 function logInfo(msg, ...args) {
   console.log(`%c🎙️ [Wavebox Recorder]%c ${msg}`, "color:#1db954;font-weight:bold", "color:inherit", ...args);
@@ -68,7 +92,7 @@ recordToggleBtn.addEventListener("click", () => {
 });
 
 // === Populate Microphones ===
-async function populateMics() {
+async function populateMics(preferId = "") {
   micSelect.innerHTML = "";
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -89,6 +113,11 @@ async function populateMics() {
       opt.textContent = mic.label || `Microphone ${mic.deviceId.slice(0, 5)}`;
       micSelect.appendChild(opt);
     }
+
+    const savedId = preferId || getSavedMicId();
+    const match = savedId ? mics.find((m) => m.deviceId === savedId) : null;
+    const selectedId = match ? match.deviceId : mics[0].deviceId;
+    setSelectedMic(selectedId);
     logInfo(`Found ${mics.length} microphone(s).`);
   } catch (err) {
     logError("Failed to enumerate devices:", err);
@@ -147,7 +176,28 @@ async function startRecording() {
       },
     };
 
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      if (err && err.name === "OverconstrainedError") {
+        logWarn("Selected microphone not available. Falling back to default input.");
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            noiseSuppression: noiseToggle.checked,
+            echoCancellation: true,
+            channelCount: 1,
+          },
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    const track = stream.getAudioTracks && stream.getAudioTracks()[0];
+    const settings = track && track.getSettings ? track.getSettings() : null;
+    if (settings && settings.deviceId) {
+      await populateMics(settings.deviceId);
+    }
     audioCtx = new AudioContext();
     micSource = audioCtx.createMediaStreamSource(stream);
     analyser = audioCtx.createAnalyser();
@@ -343,10 +393,20 @@ observer.observe(document.getElementById("now-path"), { childList: true });
 startBtn.addEventListener("click", startRecording);
 stopBtn.addEventListener("click", stopRecording);
 
+micSelect.addEventListener("change", (e) => {
+  saveMicId(e.target.value);
+});
+
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    populateMics(micSelect.value || getSavedMicId());
+  });
+}
+
 // === Init ===
 (async function initRecorder() {
   logInfo("Initializing recorder UI...");
-  await populateMics();
+  await populateMics(getSavedMicId());
   disableRecordingForExisting();
   logInfo("Recorder ready.");
 })();

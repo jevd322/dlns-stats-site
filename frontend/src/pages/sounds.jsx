@@ -29,6 +29,7 @@ export function SoundLibrary() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState(null);
   const [recordDuration, setRecordDuration] = useState('0:00');
+  const [recordDurationExact, setRecordDurationExact] = useState('0:00.000');
   const [recordSize, setRecordSize] = useState('0 B');
   const [audioLevel, setAudioLevel] = useState(0);
   const [devices, setDevices] = useState([]);
@@ -37,6 +38,9 @@ export function SoundLibrary() {
   const [recorderMode, setRecorderMode] = useState('record');
   const fileInputRef = useRef(null);
   const [noiseSuppression, setNoiseSuppression] = useState(true);
+  const [countdownEnabled, setCountdownEnabled] = useState(true);
+  const [countdownSeconds, setCountdownSeconds] = useState(3);
+  const [countdownRemaining, setCountdownRemaining] = useState(0);
   
   // Audio processing state
   const [gateThreshold, setGateThreshold] = useState(-40);
@@ -47,6 +51,10 @@ export function SoundLibrary() {
   const [highGain, setHighGain] = useState(0);
   const [outputVolume, setOutputVolume] = useState(0);
   const [showAdvancedAudio, setShowAdvancedAudio] = useState(false);
+  const [advancedImportText, setAdvancedImportText] = useState('');
+  const [trackDuration, setTrackDuration] = useState('—');
+  const [trackDurationSeconds, setTrackDurationSeconds] = useState(0);
+  const [trackPositionSeconds, setTrackPositionSeconds] = useState(0);
   
   // Effects state
   const [delayAmount, setDelayAmount] = useState(0);
@@ -62,6 +70,7 @@ export function SoundLibrary() {
   const streamRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const analyserRef = useRef(null);
+  const playbackAnalyserRef = useRef(null);
   const startTimeRef = useRef(0);
   const durationIntervalRef = useRef(null);
   const levelIntervalRef = useRef(null);
@@ -71,6 +80,28 @@ export function SoundLibrary() {
   const recordedUrlRef = useRef(null);
   const audioProcessorRef = useRef(null);
   const processorUpdateIntervalRef = useRef(null);
+  const selectedDeviceRef = useRef('');
+  const eqCanvasRef = useRef(null);
+  const vizRafRef = useRef(null);
+  const countdownTimerRef = useRef(null);
+
+  const ADVANCED_DEFAULTS = useMemo(() => ({
+    gateThreshold: -40,
+    gateHoldTime: 100,
+    compression: 4,
+    lowPassFreq: 80,
+    midGain: 0,
+    highGain: 0,
+    outputVolume: 0,
+    delayAmount: 0,
+    delayTime: 250,
+    delayFeedback: 30,
+    reverbAmount: 0,
+    distortionAmount: 0,
+    pitchModAmount: 0,
+    pitchModFreq: 5,
+    showAdvancedAudio: false,
+  }), []);
 
   const allFolderPaths = useMemo(() => {
     const paths = [];
@@ -88,7 +119,24 @@ export function SoundLibrary() {
     return paths;
   }, [tree]);
 
+  const refreshDevices = async (preferId = '') => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+    setDevices(audioInputs);
+    if (audioInputs.length > 0) {
+      const preferred = preferId || selectedDeviceRef.current || '';
+      const match = preferred ? audioInputs.find(d => d.deviceId === preferred) : null;
+      setSelectedDevice(match ? match.deviceId : audioInputs[0].deviceId);
+    }
+  };
+
   useEffect(() => {
+    selectedDeviceRef.current = selectedDevice;
+  }, [selectedDevice]);
+
+  useEffect(() => {
+    let preferredDeviceId = '';
     // Load persisted settings
     const saved = localStorage.getItem('wavebox.settings');
     if (saved) {
@@ -99,7 +147,28 @@ export function SoundLibrary() {
         if (typeof parsed.normalize === 'boolean') setNormalize(parsed.normalize);
         if (typeof parsed.autoplay === 'boolean') setAutoplay(parsed.autoplay);
         if (typeof parsed.noiseSuppression === 'boolean') setNoiseSuppression(parsed.noiseSuppression);
-        if (typeof parsed.selectedDevice === 'string') setSelectedDevice(parsed.selectedDevice);
+        if (typeof parsed.selectedDevice === 'string') {
+          preferredDeviceId = parsed.selectedDevice;
+          setSelectedDevice(parsed.selectedDevice);
+        }
+        if (typeof parsed.countdownEnabled === 'boolean') setCountdownEnabled(parsed.countdownEnabled);
+        if (typeof parsed.countdownSeconds === 'number') setCountdownSeconds(parsed.countdownSeconds);
+        const adv = parsed.advancedAudio || {};
+        if (typeof adv.gateThreshold === 'number') setGateThreshold(adv.gateThreshold);
+        if (typeof adv.gateHoldTime === 'number') setGateHoldTime(adv.gateHoldTime);
+        if (typeof adv.compression === 'number') setCompression(adv.compression);
+        if (typeof adv.lowPassFreq === 'number') setLowPassFreq(adv.lowPassFreq);
+        if (typeof adv.midGain === 'number') setMidGain(adv.midGain);
+        if (typeof adv.highGain === 'number') setHighGain(adv.highGain);
+        if (typeof adv.outputVolume === 'number') setOutputVolume(adv.outputVolume);
+        if (typeof adv.delayAmount === 'number') setDelayAmount(adv.delayAmount);
+        if (typeof adv.delayTime === 'number') setDelayTime(adv.delayTime);
+        if (typeof adv.delayFeedback === 'number') setDelayFeedback(adv.delayFeedback);
+        if (typeof adv.reverbAmount === 'number') setReverbAmount(adv.reverbAmount);
+        if (typeof adv.distortionAmount === 'number') setDistortionAmount(adv.distortionAmount);
+        if (typeof adv.pitchModAmount === 'number') setPitchModAmount(adv.pitchModAmount);
+        if (typeof adv.pitchModFreq === 'number') setPitchModFreq(adv.pitchModFreq);
+        if (typeof adv.showAdvancedAudio === 'boolean') setShowAdvancedAudio(adv.showAdvancedAudio);
       } catch {}
     }
 
@@ -120,15 +189,13 @@ export function SoundLibrary() {
     loadStats();
 
     // Get audio devices
-    if (navigator.mediaDevices) {
-      navigator.mediaDevices.enumerateDevices().then(devices => {
-        const audioInputs = devices.filter(d => d.kind === 'audioinput');
-        setDevices(audioInputs);
-        if (audioInputs.length > 0) {
-          const match = audioInputs.find(d => d.deviceId === selectedDevice);
-          setSelectedDevice(match ? match.deviceId : audioInputs[0].deviceId);
-        }
-      });
+    refreshDevices(preferredDeviceId);
+
+    const handleDeviceChange = () => {
+      refreshDevices(selectedDeviceRef.current);
+    };
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
     }
 
     // Keyboard shortcuts
@@ -148,6 +215,9 @@ export function SoundLibrary() {
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
+        navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+      }
       if (recordedUrlRef.current) {
         URL.revokeObjectURL(recordedUrlRef.current);
       }
@@ -207,9 +277,298 @@ export function SoundLibrary() {
       autoplay,
       noiseSuppression,
       selectedDevice,
+      countdownEnabled,
+      countdownSeconds,
+      advancedAudio: {
+        gateThreshold,
+        gateHoldTime,
+        compression,
+        lowPassFreq,
+        midGain,
+        highGain,
+        outputVolume,
+        delayAmount,
+        delayTime,
+        delayFeedback,
+        reverbAmount,
+        distortionAmount,
+        pitchModAmount,
+        pitchModFreq,
+        showAdvancedAudio,
+      },
     };
     localStorage.setItem('wavebox.settings', JSON.stringify(payload));
-  }, [volume, boostDb, normalize, autoplay, noiseSuppression, selectedDevice]);
+  }, [
+    volume,
+    boostDb,
+    normalize,
+    autoplay,
+    noiseSuppression,
+    selectedDevice,
+    countdownEnabled,
+    countdownSeconds,
+    gateThreshold,
+    gateHoldTime,
+    compression,
+    lowPassFreq,
+    midGain,
+    highGain,
+    outputVolume,
+    delayAmount,
+    delayTime,
+    delayFeedback,
+    reverbAmount,
+    distortionAmount,
+    pitchModAmount,
+    pitchModFreq,
+    showAdvancedAudio,
+  ]);
+
+  const getAdvancedSettings = () => ({
+    gateThreshold,
+    gateHoldTime,
+    compression,
+    lowPassFreq,
+    midGain,
+    highGain,
+    outputVolume,
+    delayAmount,
+    delayTime,
+    delayFeedback,
+    reverbAmount,
+    distortionAmount,
+    pitchModAmount,
+    pitchModFreq,
+    showAdvancedAudio,
+  });
+
+  const applyAdvancedSettings = (settings) => {
+    if (!settings || typeof settings !== 'object') return false;
+    if (typeof settings.gateThreshold === 'number') setGateThreshold(settings.gateThreshold);
+    if (typeof settings.gateHoldTime === 'number') setGateHoldTime(settings.gateHoldTime);
+    if (typeof settings.compression === 'number') setCompression(settings.compression);
+    if (typeof settings.lowPassFreq === 'number') setLowPassFreq(settings.lowPassFreq);
+    if (typeof settings.midGain === 'number') setMidGain(settings.midGain);
+    if (typeof settings.highGain === 'number') setHighGain(settings.highGain);
+    if (typeof settings.outputVolume === 'number') setOutputVolume(settings.outputVolume);
+    if (typeof settings.delayAmount === 'number') setDelayAmount(settings.delayAmount);
+    if (typeof settings.delayTime === 'number') setDelayTime(settings.delayTime);
+    if (typeof settings.delayFeedback === 'number') setDelayFeedback(settings.delayFeedback);
+    if (typeof settings.reverbAmount === 'number') setReverbAmount(settings.reverbAmount);
+    if (typeof settings.distortionAmount === 'number') setDistortionAmount(settings.distortionAmount);
+    if (typeof settings.pitchModAmount === 'number') setPitchModAmount(settings.pitchModAmount);
+    if (typeof settings.pitchModFreq === 'number') setPitchModFreq(settings.pitchModFreq);
+    if (typeof settings.showAdvancedAudio === 'boolean') setShowAdvancedAudio(settings.showAdvancedAudio);
+    return true;
+  };
+
+  const encodeAdvancedSettings = (settings) => {
+    const clamp = (v, min, max) => Math.min(Math.max(Number(v), min), max);
+    const values = [
+      clamp(settings.gateThreshold, -100, 0) + 100,
+      clamp(settings.gateHoldTime, 10, 500) - 10,
+      clamp(settings.compression, 1, 12) - 1,
+      clamp(settings.lowPassFreq, 20, 500) - 20,
+      clamp(settings.midGain, -12, 12) + 12,
+      clamp(settings.highGain, -12, 12) + 12,
+      clamp(settings.outputVolume, -20, 12) + 20,
+      clamp(settings.delayAmount, 0, 100),
+      clamp(settings.delayTime, 50, 1000) - 50,
+      clamp(settings.delayFeedback, 0, 80),
+      clamp(settings.reverbAmount, 0, 100),
+      clamp(settings.distortionAmount, 0, 100),
+      clamp(settings.pitchModAmount, 0, 100),
+      clamp(settings.pitchModFreq, 1, 20) - 1,
+      settings.showAdvancedAudio ? 1 : 0,
+    ];
+    const widths = [7, 9, 4, 9, 5, 5, 6, 7, 10, 7, 7, 7, 7, 5, 1];
+    const totalBits = widths.reduce((a, b) => a + b, 0);
+    const bytes = new Uint8Array(Math.ceil(totalBits / 8));
+    let bitPos = 0;
+    values.forEach((v, idx) => {
+      const width = widths[idx];
+      let value = v;
+      for (let i = 0; i < width; i += 1) {
+        const byteIndex = Math.floor(bitPos / 8);
+        const bitIndex = bitPos % 8;
+        const bit = value & 1;
+        bytes[byteIndex] |= bit << bitIndex;
+        value >>= 1;
+        bitPos += 1;
+      }
+    });
+    const binary = String.fromCharCode(...bytes);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+
+  const decodeAdvancedSettings = (text) => {
+    const cleaned = String(text || '').trim();
+    if (!cleaned) return null;
+    const padded = cleaned.replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (padded.length % 4)) % 4;
+    const base64 = padded + '='.repeat(padLen);
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+
+    const widths = [7, 9, 4, 9, 5, 5, 6, 7, 10, 7, 7, 7, 7, 5, 1];
+    const totalBits = widths.reduce((a, b) => a + b, 0);
+    const expectedBytes = Math.ceil(totalBits / 8);
+
+    if (bytes.length >= expectedBytes) {
+      const values = [];
+      let bitPos = 0;
+      for (let w = 0; w < widths.length; w += 1) {
+        const width = widths[w];
+        let value = 0;
+        for (let i = 0; i < width; i += 1) {
+          const byteIndex = Math.floor(bitPos / 8);
+          const bitIndex = bitPos % 8;
+          const bit = (bytes[byteIndex] >> bitIndex) & 1;
+          value |= bit << i;
+          bitPos += 1;
+        }
+        values.push(value);
+      }
+
+      return {
+        gateThreshold: clamp(values[0] - 100, -100, 0),
+        gateHoldTime: clamp(values[1] + 10, 10, 500),
+        compression: clamp(values[2] + 1, 1, 12),
+        lowPassFreq: clamp(values[3] + 20, 20, 500),
+        midGain: clamp(values[4] - 12, -12, 12),
+        highGain: clamp(values[5] - 12, -12, 12),
+        outputVolume: clamp(values[6] - 20, -20, 12),
+        delayAmount: clamp(values[7], 0, 100),
+        delayTime: clamp(values[8] + 50, 50, 1000),
+        delayFeedback: clamp(values[9], 0, 80),
+        reverbAmount: clamp(values[10], 0, 100),
+        distortionAmount: clamp(values[11], 0, 100),
+        pitchModAmount: clamp(values[12], 0, 100),
+        pitchModFreq: clamp(values[13] + 1, 1, 20),
+        showAdvancedAudio: values[14] === 1,
+      };
+    }
+
+    const expectedLegacyBytes = 15 * 2;
+    if (bytes.length >= expectedLegacyBytes) {
+      const view = new DataView(bytes.buffer);
+      const read = (i) => view.getUint16(i * 2, true);
+      return {
+        gateThreshold: clamp(read(0) - 100, -100, 0),
+        gateHoldTime: clamp(read(1) + 10, 10, 500),
+        compression: clamp(read(2), 1, 12),
+        lowPassFreq: clamp(read(3) + 20, 20, 500),
+        midGain: clamp(read(4) - 12, -12, 12),
+        highGain: clamp(read(5) - 12, -12, 12),
+        outputVolume: clamp(read(6) - 20, -20, 12),
+        delayAmount: clamp(read(7), 0, 100),
+        delayTime: clamp(read(8) + 50, 50, 1000),
+        delayFeedback: clamp(read(9), 0, 80),
+        reverbAmount: clamp(read(10), 0, 100),
+        distortionAmount: clamp(read(11), 0, 100),
+        pitchModAmount: clamp(read(12), 0, 100),
+        pitchModFreq: clamp(read(13), 1, 20),
+        showAdvancedAudio: read(14) === 1,
+      };
+    }
+
+    return null;
+  };
+
+  const handleExportAdvanced = async () => {
+    const payload = encodeAdvancedSettings(getAdvancedSettings());
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(payload);
+        showSuccess('Advanced settings string copied');
+      }
+    } catch {
+      showError('Copy failed. You can still download the string.');
+    }
+  };
+
+  const handleDownloadAdvanced = () => {
+    const payload = encodeAdvancedSettings(getAdvancedSettings());
+    const blob = new Blob([payload], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `wavebox-advanced-settings-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showSuccess('Advanced settings string downloaded');
+  };
+
+  const handleImportAdvanced = () => {
+    try {
+      const parsed = decodeAdvancedSettings(advancedImportText);
+      if (applyAdvancedSettings(parsed)) {
+        setAdvancedImportText('');
+        showSuccess('Advanced settings applied');
+      } else {
+        showError('Invalid settings string');
+      }
+    } catch {
+      showError('Invalid settings string. Please paste a valid export string.');
+    }
+  };
+
+  const handleResetAdvanced = () => {
+    applyAdvancedSettings(ADVANCED_DEFAULTS);
+    showSuccess('Advanced settings reset to defaults');
+  };
+
+  const formatDurationPrecise = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00.000';
+    const totalMs = Math.round(seconds * 1000);
+    const ms = totalMs % 1000;
+    const totalSeconds = Math.floor(totalMs / 1000);
+    const s = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const m = totalMinutes % 60;
+    const h = Math.floor(totalMinutes / 60);
+    const base = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}`;
+    return `${base}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+  };
+
+  const decodeBlobDuration = async (blob) => {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      return audioBuffer.duration;
+    } catch {
+      return null;
+    } finally {
+      try {
+        if (audioContext.state !== 'closed') await audioContext.close();
+      } catch {}
+    }
+  };
+
+  const formatTimeShort = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+    const totalSeconds = Math.floor(seconds);
+    const s = totalSeconds % 60;
+    const m = Math.floor(totalSeconds / 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const sliderStyle = {
+    width: '100%',
+    height: '6px',
+    borderRadius: '999px',
+    background: 'linear-gradient(90deg, rgba(29,185,84,0.9), rgba(0,216,255,0.9))',
+    appearance: 'none',
+    outline: 'none',
+  };
+
+  const sliderThinStyle = {
+    ...sliderStyle,
+    height: '4px',
+    background: 'linear-gradient(90deg, rgba(29,185,84,0.6), rgba(255,255,255,0.25))',
+  };
 
   // Setup gain node once
   useEffect(() => {
@@ -217,14 +576,94 @@ export function SoundLibrary() {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const source = ctx.createMediaElementSource(audioRef.current);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.85;
       const gain = ctx.createGain();
-      source.connect(gain).connect(ctx.destination);
+      source.connect(analyser);
+      analyser.connect(gain);
+      gain.connect(ctx.destination);
       audioCtxRef.current = ctx;
       gainNodeRef.current = gain;
+      analyserRef.current = analyser;
+      playbackAnalyserRef.current = analyser;
     } catch (e) {
       console.warn('AudioContext init failed', e);
     }
   }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const updateDuration = () => {
+      if (Number.isFinite(audio.duration)) {
+        setTrackDuration(formatDurationPrecise(audio.duration));
+        setTrackDurationSeconds(audio.duration);
+      }
+    };
+    const updatePosition = () => {
+      if (Number.isFinite(audio.currentTime)) {
+        setTrackPositionSeconds(audio.currentTime);
+      }
+    };
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('durationchange', updateDuration);
+    audio.addEventListener('timeupdate', updatePosition);
+    audio.addEventListener('seeked', updatePosition);
+    return () => {
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('durationchange', updateDuration);
+      audio.removeEventListener('timeupdate', updatePosition);
+      audio.removeEventListener('seeked', updatePosition);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showVisualizer) {
+      if (vizRafRef.current) cancelAnimationFrame(vizRafRef.current);
+      return;
+    }
+    const canvas = eqCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const analyser = analyserRef.current;
+    if (!ctx || !analyser) return;
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    const render = () => {
+      const { width, height } = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.fillRect(0, 0, width, height);
+
+      analyser.getByteFrequencyData(dataArray);
+      const barCount = Math.min(64, dataArray.length);
+      const step = Math.floor(dataArray.length / barCount) || 1;
+      const barWidth = width / barCount;
+
+      for (let i = 0; i < barCount; i += 1) {
+        const value = dataArray[i * step] / 255;
+        const barHeight = Math.max(2, value * height);
+        const x = i * barWidth;
+        const y = height - barHeight;
+        ctx.fillStyle = `rgba(29, 185, 84, ${0.25 + value * 0.6})`;
+        ctx.fillRect(x + 1, y, barWidth - 2, barHeight);
+      }
+
+      vizRafRef.current = requestAnimationFrame(render);
+    };
+    render();
+
+    return () => {
+      if (vizRafRef.current) cancelAnimationFrame(vizRafRef.current);
+    };
+  }, [showVisualizer, nowPlaying.path, isRecording]);
 
   // Apply volume/boost to gain node
   useEffect(() => {
@@ -340,8 +779,7 @@ export function SoundLibrary() {
     }
   };
 
-  // Recording functions
-  const startRecording = async () => {
+  const beginRecording = async () => {
     try {
       const constraints = {
         audio: {
@@ -351,7 +789,28 @@ export function SoundLibrary() {
         },
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        if (err && err.name === 'OverconstrainedError') {
+          showInfo('Selected microphone not available. Using default input.');
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              noiseSuppression,
+              echoCancellation: true,
+            },
+          });
+        } else {
+          throw err;
+        }
+      }
+
+      const track = stream.getAudioTracks && stream.getAudioTracks()[0];
+      const settings = track && track.getSettings ? track.getSettings() : null;
+      if (settings && settings.deviceId) {
+        await refreshDevices(settings.deviceId);
+      }
       streamRef.current = stream;
 
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -372,6 +831,7 @@ export function SoundLibrary() {
       processor.setPitchModulation(pitchModAmount, pitchModFreq);
       
       audioProcessorRef.current = processor;
+      analyserRef.current = processor.getAnalyser();
       
       source.connect(processor.destination);
       source.connect(processor.getAnalyser()); // Direct connection for immediate display
@@ -393,15 +853,22 @@ export function SoundLibrary() {
         recordedUrlRef.current = URL.createObjectURL(blob);
         setRecordedBlob(blob);
         setRecordSize(formatBytes(blob.size));
+        decodeBlobDuration(blob).then((duration) => {
+          if (duration != null) {
+            setRecordDurationExact(formatDurationPrecise(duration));
+          }
+        });
         clearInterval(durationIntervalRef.current);
         clearInterval(levelIntervalRef.current);
         clearInterval(processorUpdateIntervalRef.current);
         setAudioLevel(0);
+        analyserRef.current = playbackAnalyserRef.current;
       };
 
       recorder.start();
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
+      setRecordDurationExact('0:00.000');
       startTimeRef.current = Date.now();
 
       // Duration timer
@@ -428,6 +895,31 @@ export function SoundLibrary() {
     } catch (err) {
       showError('Failed to start recording: ' + err.message);
     }
+  };
+
+  // Recording functions
+  const startRecording = async () => {
+    if (countdownRemaining > 0 || isRecording) return;
+    if (!countdownEnabled || countdownSeconds <= 0) {
+      beginRecording();
+      return;
+    }
+
+    setCountdownRemaining(countdownSeconds);
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+    }
+    countdownTimerRef.current = setInterval(() => {
+      setCountdownRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+          beginRecording();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const stopRecording = () => {
@@ -727,6 +1219,7 @@ export function SoundLibrary() {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '15px', color: '#ffffff' }}>{nowPlaying.title}</div>
                   <div style={{ fontSize: '12px', color: '#7a7a82', marginTop: '4px' }}>{nowPlaying.path}</div>
+                  <div style={{ fontSize: '11px', color: '#b2b2b8', marginTop: '6px' }}>Length: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{trackDuration}</strong></div>
                 </div>
               </div>
 
@@ -746,6 +1239,26 @@ export function SoundLibrary() {
                 </button>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr 48px', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                <div style={{ fontSize: '11px', color: '#b2b2b8', textAlign: 'right' }}>{formatTimeShort(trackPositionSeconds)}</div>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, trackDurationSeconds || 0)}
+                  step="0.01"
+                  value={Math.min(trackPositionSeconds, trackDurationSeconds || 0)}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setTrackPositionSeconds(next);
+                    if (audioRef.current && Number.isFinite(next)) {
+                      audioRef.current.currentTime = next;
+                    }
+                  }}
+                  style={sliderStyle}
+                />
+                <div style={{ fontSize: '11px', color: '#b2b2b8' }}>{formatTimeShort(trackDurationSeconds)}</div>
+              </div>
+
               {/* Visualizer */}
               <div className="eq-wrap" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px', marginBottom: '28px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -756,7 +1269,7 @@ export function SoundLibrary() {
                 </div>
                 {showVisualizer && (
                   <div style={{ marginTop: '12px' }}>
-                    <canvas id="eq" style={{ width: '100%', height: '120px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px' }}></canvas>
+                    <canvas ref={eqCanvasRef} style={{ width: '100%', height: '120px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px' }}></canvas>
                   </div>
                 )}
                 <div style={{ fontSize: '11px', color: '#7a7a82', marginTop: '8px', textAlign: 'center' }}>
@@ -766,7 +1279,7 @@ export function SoundLibrary() {
 
               {/* Record Panel */}
               {recordPanelVisible && (
-                <div className="record-panel visible" style={{ background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(29, 185, 84, 0.05))', border: '2px solid rgba(29, 185, 84, 0.3)', borderRadius: '16px', padding: '24px', display: 'flex', gap: '20px', animation: 'slideIn 0.4s ease' }}>
+                <div className="record-panel visible" style={{ position: 'relative', background: 'linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(29, 185, 84, 0.05))', border: '2px solid rgba(29, 185, 84, 0.3)', borderRadius: '16px', padding: '24px', display: 'flex', gap: '20px', animation: 'slideIn 0.4s ease' }}>
                   <div style={{ width: '100%' }}>
                     <div style={{ fontWeight: 700, fontSize: '16px', color: '#1db954', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                       🎙️ Record Your Audio
@@ -815,12 +1328,43 @@ export function SoundLibrary() {
                           </div>
                         </div>
 
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={countdownEnabled}
+                                onChange={(e) => setCountdownEnabled(e.target.checked)}
+                              />
+                              Countdown before recording
+                            </label>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Countdown seconds</label>
+                            <select
+                              value={countdownSeconds}
+                              onChange={(e) => setCountdownSeconds(Number(e.target.value))}
+                              disabled={!countdownEnabled}
+                              style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255, 255, 255, 0.14)', color: countdownEnabled ? '#ffffff' : '#7a7a82', fontSize: '13px', lineHeight: '1.4' }}
+                            >
+                              {[1,2,3,4,5].map((s) => (
+                                <option key={s} value={s}>{s} sec</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                           <div>
+                            {countdownRemaining > 0 && (
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                                <div style={{ fontSize: '48px', fontWeight: 800, color: '#ffffff', textShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>{countdownRemaining}</div>
+                              </div>
+                            )}
                             <label style={{ fontSize: '12px', color: '#b2b2b8', display: 'block', marginBottom: '8px', fontWeight: 600 }}>Playback volume</label>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <input type="range" min="0" max="100" value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ flex: 1 }} />
-                              <span style={{ fontSize: '12px', color: '#dcdce0', minWidth: '42px', textAlign: 'right' }}>{volume}%</span>
+                                disabled={isRecording || countdownRemaining > 0}
                             </div>
                           </div>
                           <div>
@@ -833,55 +1377,100 @@ export function SoundLibrary() {
                         </div>
 
                         {/* Advanced Audio Processing */}
-                        <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '12px', marginBottom: '16px' }}>
+                        <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
                           <button
                             onClick={() => setShowAdvancedAudio(!showAdvancedAudio)}
-                            style={{ width: '100%', background: 'transparent', border: 'none', color: '#1db954', textAlign: 'left', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '0' }}
+                            style={{ width: '100%', background: 'transparent', border: 'none', color: '#1db954', textAlign: 'left', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: '0' }}
                           >
                             {showAdvancedAudio ? '▼' : '▶'} Advanced Audio Processing
                           </button>
+
+                          <div style={{ display: 'grid', gap: '10px', marginTop: '10px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
+                              <input
+                                value={advancedImportText}
+                                onChange={(e) => setAdvancedImportText(e.target.value)}
+                                placeholder="Paste preset string"
+                                style={{ width: '100%', background: 'rgba(0,0,0,0.35)', color: '#ffffff', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', padding: '8px 10px', fontSize: '12px', lineHeight: 1.4 }}
+                              />
+                              <button
+                                onClick={handleImportAdvanced}
+                                disabled={!advancedImportText.trim()}
+                                style={{ background: !advancedImportText.trim() ? 'rgba(255,255,255,0.08)' : 'rgba(29, 185, 84, 0.2)', border: '1px solid rgba(255,255,255,0.12)', color: !advancedImportText.trim() ? '#7a7a82' : '#1db954', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', fontWeight: 700, cursor: !advancedImportText.trim() ? 'not-allowed' : 'pointer' }}
+                              >
+                                Import
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              <button
+                                onClick={handleExportAdvanced}
+                                style={{ background: 'rgba(29, 185, 84, 0.15)', border: '1px solid rgba(29, 185, 84, 0.35)', color: '#1db954', borderRadius: '8px', padding: '6px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                              >
+                                Copy string
+                              </button>
+                              <button
+                                onClick={handleDownloadAdvanced}
+                                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#dcdce0', borderRadius: '8px', padding: '6px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Download string
+                              </button>
+                              <button
+                                onClick={handleResetAdvanced}
+                                style={{ background: 'rgba(255, 86, 86, 0.12)', border: '1px solid rgba(255, 86, 86, 0.3)', color: '#ff7b7b', borderRadius: '8px', padding: '6px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                              >
+                                Reset defaults
+                              </button>
+                              <button
+                                onClick={() => setAdvancedImportText('')}
+                                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#dcdce0', borderRadius: '8px', padding: '6px 10px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Clear
+                              </button>
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#7a7a82' }}>Tip: share presets by copying the compact string.</div>
+                          </div>
 
                           {showAdvancedAudio && (
                             <div style={{ marginTop: '12px', display: 'grid', gap: '12px' }}>
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Noise Gate Threshold: {gateThreshold} dB</label>
-                                <input type="range" min="-100" max="0" value={gateThreshold} onChange={(e) => setGateThreshold(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="-100" max="0" value={gateThreshold} onChange={(e) => setGateThreshold(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Lower = more aggressive noise reduction</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Gate Hold Time: {gateHoldTime} ms</label>
-                                <input type="range" min="10" max="500" value={gateHoldTime} onChange={(e) => setGateHoldTime(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="10" max="500" value={gateHoldTime} onChange={(e) => setGateHoldTime(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Time gate stays open after signal drops below threshold</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Compression: {compression}:1</label>
-                                <input type="range" min="1" max="12" value={compression} onChange={(e) => setCompression(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="1" max="12" value={compression} onChange={(e) => setCompression(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Reduces volume peaks for consistent levels</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Low Pass Filter: {lowPassFreq} Hz</label>
-                                <input type="range" min="20" max="500" value={lowPassFreq} onChange={(e) => setLowPassFreq(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="20" max="500" value={lowPassFreq} onChange={(e) => setLowPassFreq(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Removes rumble and background noise</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Mid Boost: {midGain > 0 ? '+' : ''}{midGain} dB</label>
-                                <input type="range" min="-12" max="12" value={midGain} onChange={(e) => setMidGain(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="-12" max="12" value={midGain} onChange={(e) => setMidGain(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Presence and clarity (3kHz)</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>High Boost: {highGain > 0 ? '+' : ''}{highGain} dB</label>
-                                <input type="range" min="-12" max="12" value={highGain} onChange={(e) => setHighGain(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="-12" max="12" value={highGain} onChange={(e) => setHighGain(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Brightness and detail (8kHz)</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Output Volume: {outputVolume > 0 ? '+' : ''}{outputVolume} dB</label>
-                                <input type="range" min="-20" max="12" value={outputVolume} onChange={(e) => setOutputVolume(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="-20" max="12" value={outputVolume} onChange={(e) => setOutputVolume(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Final output level</div>
                               </div>
 
@@ -893,35 +1482,35 @@ export function SoundLibrary() {
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Delay/Echo: {delayAmount}%</label>
-                                <input type="range" min="0" max="100" value={delayAmount} onChange={(e) => setDelayAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="0" max="100" value={delayAmount} onChange={(e) => setDelayAmount(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                   <div>
-                                    Time: <input type="range" min="50" max="1000" value={delayTime} onChange={(e) => setDelayTime(Number(e.target.value))} style={{ width: '100%', height: '6px' }} /> {delayTime}ms
+                                    Time: <input type="range" min="50" max="1000" value={delayTime} onChange={(e) => setDelayTime(Number(e.target.value))} style={sliderThinStyle} /> {delayTime}ms
                                   </div>
                                   <div>
-                                    Feedback: <input type="range" min="0" max="80" value={delayFeedback} onChange={(e) => setDelayFeedback(Number(e.target.value))} style={{ width: '100%', height: '6px' }} /> {delayFeedback}%
+                                    Feedback: <input type="range" min="0" max="80" value={delayFeedback} onChange={(e) => setDelayFeedback(Number(e.target.value))} style={sliderThinStyle} /> {delayFeedback}%
                                   </div>
                                 </div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Reverb: {reverbAmount}%</label>
-                                <input type="range" min="0" max="100" value={reverbAmount} onChange={(e) => setReverbAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="0" max="100" value={reverbAmount} onChange={(e) => setReverbAmount(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Room ambience and space</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Distortion: {distortionAmount}%</label>
-                                <input type="range" min="0" max="100" value={distortionAmount} onChange={(e) => setDistortionAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="0" max="100" value={distortionAmount} onChange={(e) => setDistortionAmount(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px' }}>Saturation and edge</div>
                               </div>
 
                               <div>
                                 <label style={{ fontSize: '11px', color: '#b2b2b8', display: 'block', marginBottom: '6px', fontWeight: 600 }}>Pitch Modulation: {pitchModAmount}%</label>
-                                <input type="range" min="0" max="100" value={pitchModAmount} onChange={(e) => setPitchModAmount(Number(e.target.value))} style={{ width: '100%' }} />
+                                <input type="range" min="0" max="100" value={pitchModAmount} onChange={(e) => setPitchModAmount(Number(e.target.value))} style={sliderStyle} />
                                 <div style={{ fontSize: '10px', color: '#7a7a82', marginTop: '4px', display: 'grid', gridTemplateColumns: '1fr' }}>
                                   <div>
-                                    Rate: <input type="range" min="1" max="20" value={pitchModFreq} onChange={(e) => setPitchModFreq(Number(e.target.value))} style={{ width: '100%', height: '6px' }} /> {pitchModFreq} Hz
+                                    Rate: <input type="range" min="1" max="20" value={pitchModFreq} onChange={(e) => setPitchModFreq(Number(e.target.value))} style={sliderThinStyle} /> {pitchModFreq} Hz
                                   </div>
                                 </div>
                               </div>
@@ -1030,7 +1619,10 @@ export function SoundLibrary() {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '16px', borderTop: '1px solid rgba(29, 185, 84, 0.2)' }}>
                           <div style={{ fontSize: '12px', color: '#7a7a82' }}>
-                            Duration: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordDuration}</strong>
+                            Exact length: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordDurationExact}</strong>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#7a7a82' }}>
+                            Live timer: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordDuration}</strong>
                           </div>
                           <div style={{ fontSize: '12px', color: '#7a7a82' }}>
                             Size: <strong style={{ color: '#ffffff', fontWeight: 600 }}>{recordSize}</strong>
