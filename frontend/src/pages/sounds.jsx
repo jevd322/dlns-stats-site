@@ -856,7 +856,9 @@ export function SoundLibrary() {
       source.connect(processor.getAnalyser()); // Direct connection for immediate display
 
       recordedChunksRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const outputDestination = audioContext.createMediaStreamDestination();
+      processor.getOutputNode().connect(outputDestination);
+      const recorder = new MediaRecorder(outputDestination.stream, { mimeType: 'audio/webm' });
       
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -1093,7 +1095,8 @@ export function SoundLibrary() {
     }
 
     const pathKey = node.path || '';
-    const isOpen = expanded.has(pathKey);
+    const filterActive = treeFilter.trim().length > 0;
+    const isOpen = filterActive || expanded.has(pathKey);
     const counts = countsRef.current[pathKey] || { files: 0, folders: 0 };
     if (treeFilter.trim() && !hasMatchingDescendant(node)) return null;
     return (
@@ -1134,6 +1137,8 @@ export function SoundLibrary() {
         boostDb={boostDb}
         onVolumeChange={setVolume}
         onBoostChange={setBoostDb}
+        searchValue={treeFilter}
+        onSearchChange={setTreeFilter}
       />
 
       <main className="wrap mainwrap" style={{ maxWidth: '1680px', margin: '0 auto', padding: '20px' }}>

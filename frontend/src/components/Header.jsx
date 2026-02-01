@@ -2,8 +2,20 @@ import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { logout } from '../utils/api';
 
-export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAutoplayChange, normalize, autoplay, volume, boostDb, onVolumeChange, onBoostChange }) {
-  const [search, setSearch] = useState('');
+export function Header({
+  onRecordClick,
+  isAuthenticated,
+  onNormalizeChange,
+  onAutoplayChange,
+  normalize,
+  autoplay,
+  volume,
+  boostDb,
+  onVolumeChange,
+  onBoostChange,
+  searchValue,
+  onSearchChange,
+}) {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
@@ -56,8 +68,8 @@ export function Header({ onRecordClick, isAuthenticated, onNormalizeChange, onAu
             <input
               type="text"
               placeholder="Search audio…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchValue || ''}
+              onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
               style={{
                 background: 'transparent',
                 border: 'none',

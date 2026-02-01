@@ -49,6 +49,8 @@ export class AudioProcessor {
     this.delayFeedback.gain.value = 0;
 
     // Reverb (simple convolver)
+    this.convolver = this.ctx.createConvolver();
+    this.convolver.buffer = this.createImpulseResponse(1.8, 2.5);
     this.reverbMix = this.ctx.createGain();
     this.reverbMix.gain.value = 0;
     this.dryGain = this.ctx.createGain();
@@ -69,6 +71,7 @@ export class AudioProcessor {
     this.pitchLfoDepth = this.ctx.createGain();
     this.pitchLfoDepth.gain.value = 0;
     this.pitchLfo.connect(this.pitchLfoDepth);
+    this.pitchLfoDepth.connect(this.pitchLfoGain);
     this.pitchLfo.start();
 
     // Delay node connections
@@ -96,6 +99,10 @@ export class AudioProcessor {
     // Delay send
     this.distortionWaveShaper.connect(this.delayNode);
     this.delayNode.connect(this.delayMix);
+
+    // Reverb send
+    this.distortionWaveShaper.connect(this.convolver);
+    this.convolver.connect(this.reverbMix);
     
     // Mix outputs
     this.distortionWaveShaper.connect(this.outputGain);
@@ -103,6 +110,9 @@ export class AudioProcessor {
     this.reverbMix.connect(this.outputGain);
     
     this.outputGain.connect(this.analyser);
+
+    // Pitch modulation to delay time (subtle chorus)
+    this.pitchLfoGain.connect(this.delayNode.delayTime);
 
     // This node is the entry point
     this.destination = this.gateGain;
@@ -118,6 +128,19 @@ export class AudioProcessor {
       curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
     }
     return curve;
+  }
+
+  createImpulseResponse(durationSeconds, decay) {
+    const rate = this.ctx.sampleRate;
+    const length = rate * durationSeconds;
+    const impulse = this.ctx.createBuffer(2, length, rate);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = impulse.getChannelData(channel);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+      }
+    }
+    return impulse;
   }
 
   // Set noise gate threshold (in dB, 0 to -100)
@@ -182,7 +205,7 @@ export class AudioProcessor {
   // Pitch modulation (0-100%, 1-20 Hz)
   setPitchModulation(amountPercent, frequencyHz) {
     const amount = Math.max(0, Math.min(100, amountPercent));
-    this.pitchLfoGain.gain.value = amount / 100;
+    this.pitchLfoGain.gain.value = amount / 2000;
     this.pitchLfo.frequency.value = Math.max(1, Math.min(20, frequencyHz));
     this.pitchLfoDepth.gain.value = amount;
   }
@@ -219,5 +242,9 @@ export class AudioProcessor {
   // Get analyser for visualization
   getAnalyser() {
     return this.analyser;
+  }
+
+  getOutputNode() {
+    return this.outputGain;
   }
 }
