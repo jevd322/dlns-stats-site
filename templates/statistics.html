@@ -42,6 +42,158 @@
     </div>
 </section>
 
+<!-- Key metrics summary -->
+<section class="card" style="margin-top: 1.5rem;">
+    <header>
+        <h3>
+            <span style="color: #06b6d4; margin-right: 0.5rem;" aria-hidden="true">🔎</span>
+            Key Metrics
+        </h3>
+        <p class="muted">High-level aggregated numbers across all matches.</p>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 1.25rem 0;">
+        <div class="text-center">
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--pico-primary);">
+                {{ "{:,}".format(stats.combat.total_kills or 0) }}
+            </div>
+            <div class="text-small text-muted">Total Kills</div>
+        </div>
+
+        <div class="text-center">
+            <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444;">
+                {{ "{:,}".format(stats.combat.total_player_damage or 0) }}
+            </div>
+            <div class="text-small text-muted">Total Player Damage</div>
+        </div>
+
+        <div class="text-center">
+            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">
+                {{ "{:,}".format(stats.combat.total_player_healing or 0) }}
+            </div>
+            <div class="text-small text-muted">Total Healing</div>
+        </div>
+
+        <div class="text-center">
+            <div style="font-size: 1.5rem; font-weight: 700; color: #f59e0b;">
+                {{ stats.shooting.shot_accuracy | round(2) }}%
+            </div>
+            <div class="text-small text-muted">Shot Accuracy</div>
+        </div>
+
+        <div class="text-center">
+            <div style="font-size: 1.5rem; font-weight: 700; color: #6366f1;">
+                {{ (stats.basic.avg_match_duration / 60) | round(1) }}m
+            </div>
+            <div class="text-small text-muted">Avg Match Duration</div>
+        </div>
+    </div>
+</section>
+
+<!-- Top players (most matches played) -->
+{% if stats.top_performers and stats.top_performers.most_common %}
+<section class="card" style="margin-top: 1.5rem;">
+    <header>
+        <h3>
+            <span style="color: #8b5cf6; margin-right: 0.5rem;" aria-hidden="true">🏆</span>
+            Top Players
+        </h3>
+        <p class="muted">Players with the most matches recorded in the database.</p>
+    </header>
+
+    <div class="table-responsive">
+        <table role="grid" class="striped">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th class="hide-on-mobile">Matches</th>
+                </tr>
+            </thead>
+            <tbody class="stagger-in">
+                {% for player in stats.top_performers.most_common[:20] %}
+                <tr>
+                    <td>
+                        <strong>{{ player[0] or 'Unknown' }}</strong>
+                    </td>
+                    <td class="hide-on-mobile">
+                        <span class="badge neutral">{{ player[1] }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<!-- Top performers quick lists -->
+<section class="card" style="margin-top: 1.5rem;">
+    <header>
+        <h3>
+            <span style="color: #ef4444; margin-right: 0.5rem;" aria-hidden="true">🔥</span>
+            Top Performers
+        </h3>
+        <p class="muted">Highlight lists for killers, damage dealers and healers.</p>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0;">
+        <div>
+            <h4 style="margin-top: 0;">Top Killers</h4>
+            <ol style="margin: 0 0 0 1.25rem; padding: 0;">
+                {% for r in stats.top_performers.killers[:5] %}
+                <li style="margin: .35rem 0;">{{ r[0] or 'Unknown' }} — <strong>{{ r[1] }}</strong> kills</li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <div>
+            <h4 style="margin-top: 0;">Top Damage</h4>
+            <ol style="margin: 0 0 0 1.25rem; padding: 0;">
+                {% for r in stats.top_performers.damage_dealers[:5] %}
+                <li style="margin: .35rem 0;">{{ r[0] or 'Unknown' }} — <strong>{{ "{:,}".format(r[1] or 0) }}</strong></li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <div>
+            <h4 style="margin-top: 0;">Top Healers</h4>
+            <ol style="margin: 0 0 0 1.25rem; padding: 0;">
+                {% for r in stats.top_performers.healers[:5] %}
+                <li style="margin: .35rem 0;">{{ r[0] or 'Unknown' }} — <strong>{{ "{:,}".format(r[1] or 0) }}</strong></li>
+                {% endfor %}
+            </ol>
+        </div>
+    </div>
+</section>
+    
+<!-- Funny / Goofy Stats -->
+{% if stats.funny_stats %}
+<section class="card" style="margin-top: 1.5rem;">
+    <header>
+        <h3>
+            <span style="color: #f97316; margin-right: 0.5rem;" aria-hidden="true">🤪</span>
+            Funny &amp; Weird Stats
+        </h3>
+        <p class="muted">A few silly highlights from the dataset.</p>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
+        <div class="text-center">
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ stats.funny_stats.most_pings.player or 'Unknown' }}</div>
+            <div class="text-small text-muted">Most pings in a match — {{ stats.funny_stats.most_pings.value or 0 }}</div>
+        </div>
+        <div class="text-center">
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ stats.funny_stats.most_shots_fired.player or 'Unknown' }}</div>
+            <div class="text-small text-muted">Most shots fired in a match — {{ stats.funny_stats.most_shots_fired.value or 0 }}</div>
+        </div>
+        <div class="text-center">
+            <div style="font-size: 1.25rem; font-weight: 700;">{{ stats.funny_stats.most_zero_kill_matches.player or 'Unknown' }}</div>
+            <div class="text-small text-muted">Matches with zero kills — {{ stats.funny_stats.most_zero_kill_matches.value or 0 }}</div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 {% if stats.hero_stats %}
 <section class="card" style="margin-top: 1.5rem;">
     <header>
@@ -63,7 +215,7 @@
                 </tr>
             </thead>
             <tbody class="stagger-in">
-                {% for hero in stats.hero_stats[:10] %}
+                {% for hero in stats.hero_stats %}
                 <tr>
                     <td>
                         <strong>{{ hero.hero_name or "Unknown Hero" }}</strong>
