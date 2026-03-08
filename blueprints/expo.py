@@ -515,6 +515,7 @@ def results():  # type: ignore
 @expo_bp.post("/process")
 def process_match():  # type: ignore
     payload = request.get_json(silent=True) or {}
+    include_detailed = bool(payload.get("include_detailed", False))
 
     def generate():
         try:
@@ -615,7 +616,7 @@ def process_match():  # type: ignore
 
                 yield json.dumps({"type": "log", "message": "Parsing final stats...", "percent": int((3 / total_steps) * 100)}) + "\n"
                 rows = build_rows(info, name_map)
-                hero_details = build_hero_breakdown(info, name_map, match_input)
+                hero_details = build_hero_breakdown(info, name_map, match_input) if include_detailed else []
 
                 yield json.dumps({"type": "log", "message": "Preparing exports...", "percent": int((4 / total_steps) * 100)}) + "\n"
                 csv_text = rows_to_delimited(rows, ",", include_header=True)

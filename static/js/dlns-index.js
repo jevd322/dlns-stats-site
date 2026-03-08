@@ -16,14 +16,19 @@
     }
     async function i() {
         var o = document.getElementById("dlnsMatchId"),
-            c = o ? String(o.value || "").trim() : "";
+            c = o ? String(o.value || "").trim() : "",
+            detailsEl = document.getElementById("dlnsIncludeDetails"),
+            includeDetailed = !!(detailsEl && detailsEl.checked);
         if (!c) {
             alert("Please enter a match ID or comma-separated match IDs");
             return
         }
         a();
         var d = c.includes(",");
-        s(d ? "Batch processing mode detected..." : "Single match processing..."), s("Submitting job..."), r(!0);
+        s(d ? "Batch processing mode detected..." : "Single match processing..."), s(includeDetailed ? "Detailed breakdown enabled." : "Detailed breakdown disabled."), s("Submitting job..."), r(!0);
+        try {
+            localStorage.setItem("dlns_include_detailed", includeDetailed ? "true" : "false")
+        } catch (e) {}
         try {
             var l = await fetch("/dlns/process", {
                 method: "POST",
@@ -31,7 +36,8 @@
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    match_id: c
+                    match_id: c,
+                    include_detailed: includeDetailed
                 })
             });
             if (!l.ok) throw new Error("Request failed: " + l.status + " " + (l.statusText || ""));
@@ -82,5 +88,10 @@
             r(!1)
         }
     }
+    try {
+        var detailsPref = localStorage.getItem("dlns_include_detailed"),
+            detailsElInit = document.getElementById("dlnsIncludeDetails");
+        detailsElInit && (detailsElInit.checked = "true" === detailsPref)
+    } catch (e) {}
     e && e.addEventListener("click", i)
 })();

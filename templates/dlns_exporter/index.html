@@ -8,6 +8,10 @@
     <button id="dlnsRunBtn" class="dlns-btn">Process</button>
     <a id="dlnsViewBtn" class="dlns-btn-secondary" href="{{ url_for('dlns_exporter.results') }}" style="display:none;">View Results</a>
   </div>
+  <label class="dlns-toggle-row" for="dlnsIncludeDetails">
+    <input id="dlnsIncludeDetails" type="checkbox" class="dlns-checkbox">
+    <span>Include detailed hero breakdown (extra API calls, slower)</span>
+  </label>
   <div id="dlnsProgress" class="dlns-progress">Ready.</div>
   <div class="dlns-instructions">
     <p class="dlns-note"><strong>Single Match:</strong> Enter one match ID (e.g., 123456)</p>
