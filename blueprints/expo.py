@@ -26,6 +26,8 @@ expo_bp = Blueprint(
 MATCH_METADATA_URL = "https://api.deadlock-api.com/v1/matches/{match_id}/metadata"
 HERO_DETAILS_URL = "https://assets.deadlock-api.com/v2/heroes/{hero_id}"
 HERO_CLIENT_VERSION = os.getenv("HERO_CLIENT_VERSION", "6181").strip()
+ITEM_DETAILS_URL = "https://assets.deadlock-api.com/v2/items/{item_id}"
+ITEM_CLIENT_VERSION = os.getenv("ITEM_CLIENT_VERSION", HERO_CLIENT_VERSION).strip()
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
 STEAM_API_KEY = os.getenv("STEAM_API_KEY", "")
 
@@ -155,6 +157,40 @@ def get_hero_name(hero_id: Optional[int], cache: Dict[int, str]) -> str:
         return cache[hero_id]
 
 
+def _extract_item_name(item_data: Dict[str, Any]) -> Optional[str]:
+    for key in ("name", "class_name", "item_name", "localized_name"):
+        value = item_data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def get_item_name(item_id: Optional[int], cache: Dict[int, str]) -> str:
+    if item_id is None:
+        return "Unknown Item"
+
+    try:
+        item_id_int = int(item_id)
+    except Exception:
+        return f"Item {item_id}"
+
+    if item_id_int in cache:
+        return cache[item_id_int]
+
+    try:
+        params = {"language": "english"}
+        if ITEM_CLIENT_VERSION:
+            params["client_version"] = ITEM_CLIENT_VERSION
+        resp = requests.get(ITEM_DETAILS_URL.format(item_id=item_id_int), params=params, timeout=30)
+        resp.raise_for_status()
+        item_data = resp.json()
+        cache[item_id_int] = _extract_item_name(item_data) or f"Item {item_id_int}"
+        return cache[item_id_int]
+    except Exception:
+        cache[item_id_int] = f"Item {item_id_int}"
+        return cache[item_id_int]
+
+
 def to_steamid64(account_id: int) -> str:
     return str(int(account_id) + 76561197960265728)
 
@@ -241,6 +277,148 @@ def format_duration(seconds: Optional[int]) -> str:
     return f"{m}:{sec:02d}"
 
 
+def format_game_time(seconds: Optional[int]) -> str:
+    if seconds is None:
+        return "Unknown"
+    try:
+        s = int(seconds)
+    except Exception:
+        return "Unknown"
+
+    sign = "-" if s < 0 else ""
+    s_abs = abs(s)
+    m, sec = divmod(s_abs, 60)
+    return f"{sign}{m}:{sec:02d}"
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _team_label(team: Optional[int]) -> str:
+    if team == 0:
+        return "Amber"
+    if team == 1:
+        return "Sapphire"
+    return "Unknown"
+
+
+def _build_item_timeline(items: Any, item_name_cache: Dict[int, str]) -> List[Dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+
+    events: List[Dict[str, Any]] = []
+    for item_event in items:
+        if not isinstance(item_event, dict):
+            continue
+
+        item_name = get_item_name(item_event.get("item_id"), item_name_cache)
+        bought_at = item_event.get("game_time_s")
+        sold_at = item_event.get("sold_time_s")
+
+        if bought_at is not None:
+            buy_s = _to_int(bought_at, default=0)
+            events.append({
+                "type": "BUY",
+                "time_s": buy_s,
+                "time": format_game_time(buy_s),
+                "item": item_name,
+            })
+
+        if sold_at is not None:
+            sold_s = _to_int(sold_at, default=-1)
+            if sold_s >= 0:
+                events.append({
+                    "type": "SELL",
+                    "time_s": sold_s,
+                    "time": format_game_time(sold_s),
+                    "item": item_name,
+                })
+
+    events.sort(key=lambda e: (e.get("time_s", 0), e.get("type", "")))
+    return events
+
+
+def build_hero_breakdown(match_info: Dict[str, Any], name_map: Dict[int, str], match_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    players = match_info.get("players", []) or []
+    winning_team = match_info.get("winning_team")
+    breakdown: List[Dict[str, Any]] = []
+    hero_cache: Dict[int, str] = {}
+    item_name_cache: Dict[int, str] = {}
+
+    for p in players:
+        stats_final = last_stats(p.get("stats"))
+        team = team_from_slot(p.get("player_slot"))
+        account_id = p.get("account_id")
+        hero_id = p.get("hero_id")
+        hero_name = get_hero_name(hero_id, hero_cache)
+        player_name = name_map.get(account_id, "Unknown")
+
+        kills = _to_int(stats_final.get("kills") if stats_final else p.get("kills"))
+        deaths = _to_int(stats_final.get("deaths") if stats_final else p.get("deaths"))
+        assists = _to_int(stats_final.get("assists") if stats_final else p.get("assists"))
+        shots_hit = _to_int(stats_final.get("shots_hit"))
+        shots_missed = _to_int(stats_final.get("shots_missed"))
+        shots_total = shots_hit + shots_missed
+        shot_accuracy_pct: Optional[float] = None
+        if shots_total > 0:
+            shot_accuracy_pct = (shots_hit * 100.0) / shots_total
+
+        if team is None or winning_team is None:
+            result = "Unknown"
+        else:
+            result = "Win" if int(team) == int(winning_team) else "Loss"
+
+        item_events = _build_item_timeline(p.get("items"), item_name_cache)
+
+        detail: Dict[str, Any] = {
+            "Player Name": player_name,
+            "Hero": hero_name,
+            "Team": _team_label(team),
+            "Result": result,
+            "Kills": kills,
+            "Deaths": deaths,
+            "Assists": assists,
+            "KDA": f"{kills}/{deaths}/{assists}",
+            "Creep Kills": _to_int(stats_final.get("creep_kills")),
+            "Neutral Kills": _to_int(stats_final.get("neutral_kills")),
+            "Last Hits": _to_int(p.get("last_hits"), default=_to_int(stats_final.get("creep_kills"))),
+            "Denies": _to_int(stats_final.get("denies")),
+            "Shots Hit": shots_hit,
+            "Shots Missed": shots_missed,
+            "Shot Accuracy %": round(shot_accuracy_pct, 1) if shot_accuracy_pct is not None else None,
+            "Player Damage": _to_int(stats_final.get("player_damage")),
+            "Obj Damage": _to_int(stats_final.get("boss_damage")),
+            "Healing": _to_int(stats_final.get("player_healing")),
+            "Self Healing": _to_int(stats_final.get("self_healing")),
+            "Teammate Healing": _to_int(stats_final.get("teammate_healing")),
+            "Damage Taken": _to_int(stats_final.get("player_damage_taken")),
+            "Damage Mitigated": _to_int(stats_final.get("damage_mitigated")),
+            "Headshot Kills": _to_int(stats_final.get("headshot_kills")),
+            "Bullet Kills": _to_int(stats_final.get("bullet_kills")),
+            "Melee Kills": _to_int(stats_final.get("melee_kills")),
+            "Ability Kills": _to_int(stats_final.get("ability_kills")),
+            "Level": _to_int(stats_final.get("level")),
+            "Max Health": _to_int(stats_final.get("max_health")),
+            "Item Events": item_events,
+            "Item Timeline": " | ".join([f"{ev['time']} {ev['type']} {ev['item']}" for ev in item_events]),
+        }
+
+        if match_id is not None:
+            detail["Match_ID"] = match_id
+
+        breakdown.append(detail)
+
+    # Keep consistent ordering: winners first, then losers, then unknown.
+    winners = [r for r in breakdown if r.get("Result") == "Win"]
+    losers = [r for r in breakdown if r.get("Result") == "Loss"]
+    unknowns = [r for r in breakdown if r.get("Result") not in ("Win", "Loss")]
+    return winners + losers + unknowns
+
+
 def build_rows(match_info: Dict[str, Any], name_map: Dict[int, str], match_id: Optional[str] = None) -> List[Dict[str, Any]]:
     players = match_info.get("players", []) or []
     winning_team = match_info.get("winning_team")
@@ -293,8 +471,8 @@ def build_rows(match_info: Dict[str, Any], name_map: Dict[int, str], match_id: O
         rows.append(row_data)
 
     winners = [r for r in rows if r.get("Result") == "Win"]
-    losers = [r for r in rows if r.get("Result") == "Lose"]
-    unknowns = [r for r in rows if r.get("Result") not in ("Win", "Lose")]
+    losers = [r for r in rows if r.get("Result") == "Loss"]
+    unknowns = [r for r in rows if r.get("Result") not in ("Win", "Loss")]
     return winners + losers + unknowns
 
 
@@ -409,6 +587,7 @@ def process_match():  # type: ignore
                     "csv": csv_text,
                     "tsv": tsv_text,
                     "tsv_no_match_id": tsv_no_match_id,
+                    "hero_details": [],
                     "total_matches": len(match_ids),
                     "total_players": len(all_rows),
                 }
@@ -436,12 +615,21 @@ def process_match():  # type: ignore
 
                 yield json.dumps({"type": "log", "message": "Parsing final stats...", "percent": int((3 / total_steps) * 100)}) + "\n"
                 rows = build_rows(info, name_map)
+                hero_details = build_hero_breakdown(info, name_map, match_input)
 
                 yield json.dumps({"type": "log", "message": "Preparing exports...", "percent": int((4 / total_steps) * 100)}) + "\n"
                 csv_text = rows_to_delimited(rows, ",", include_header=True)
                 tsv_text = rows_to_delimited(rows, "\t", include_header=False)
 
-                result = {"type": "result", "headers": HEADERS, "rows": rows, "csv": csv_text, "tsv": tsv_text}
+                result = {
+                    "type": "result",
+                    "headers": HEADERS,
+                    "rows": rows,
+                    "hero_details": hero_details,
+                    "csv": csv_text,
+                    "tsv": tsv_text,
+                    "match_id": match_input,
+                }
                 yield json.dumps(result) + "\n"
                 yield json.dumps({"type": "progress", "message": "Match export ready.", "percent": 100}) + "\n"
 

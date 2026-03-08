@@ -75,7 +75,7 @@
                 var y = JSON.parse(g.trim());
                 ("result" === y.type || "batch_result" === y.type) && (h = y)
             } catch (e) {}
-            h && h.rows ? (sessionStorage.setItem("dlns_rows", JSON.stringify(h.rows)), sessionStorage.setItem("dlns_headers", JSON.stringify(h.headers)), sessionStorage.setItem("dlns_csv", h.csv), sessionStorage.setItem("dlns_tsv", h.tsv), sessionStorage.setItem("dlns_is_batch", "batch_result" === h.type ? "true" : "false"), h.tsv_no_match_id && sessionStorage.setItem("dlns_tsv_no_match_id", h.tsv_no_match_id), n && (n.style.display = ""), s('Results ready. Click "View Results" to see the data.')) : s("No results received.")
+            h && h.rows ? (sessionStorage.setItem("dlns_rows", JSON.stringify(h.rows)), sessionStorage.setItem("dlns_headers", JSON.stringify(h.headers)), sessionStorage.setItem("dlns_csv", h.csv), sessionStorage.setItem("dlns_tsv", h.tsv), sessionStorage.setItem("dlns_is_batch", "batch_result" === h.type ? "true" : "false"), sessionStorage.setItem("dlns_hero_details", JSON.stringify(h.hero_details || [])), sessionStorage.setItem("dlns_match_id", String(h.match_id || c)), h.tsv_no_match_id ? sessionStorage.setItem("dlns_tsv_no_match_id", h.tsv_no_match_id) : sessionStorage.removeItem("dlns_tsv_no_match_id"), n && (n.style.display = ""), s('Results ready. Click "View Results" to see the data.')) : s("No results received.")
         } catch (e) {
             s("Error: " + (e && (e.message || e.toString()) || String(e)))
         } finally {
