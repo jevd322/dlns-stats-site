@@ -9,6 +9,7 @@ from pathlib import Path
 
 import requests
 from flask import Blueprint, Response, render_template, request, stream_with_context
+from heroes import get_hero_name as get_local_hero_name
 
 # Unique, isolated Blueprint for the DLNS exporter UI and API
 expo_bp = Blueprint(
@@ -23,9 +24,8 @@ expo_bp = Blueprint(
 
 # --- API endpoints and config (copied from app module, hardcoded as requested) ---
 MATCH_METADATA_URL = "https://api.deadlock-api.com/v1/matches/{match_id}/metadata"
-HERO_DETAILS_URL = (
-    "https://assets.deadlock-api.com/v2/heroes/{hero_id}?language=english&client_version=5902"
-)
+HERO_DETAILS_URL = "https://assets.deadlock-api.com/v2/heroes/{hero_id}"
+HERO_CLIENT_VERSION = os.getenv("HERO_CLIENT_VERSION", "6181").strip()
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
 STEAM_API_KEY = os.getenv("STEAM_API_KEY", "")
 
@@ -120,20 +120,38 @@ def get_match_metadata(match_id: int) -> Dict[str, Any]:
     return data["match_info"]
 
 
+def _extract_hero_name(hero_data: Dict[str, Any]) -> Optional[str]:
+    for key in ("name", "class_name", "hero_name", "localized_name"):
+        value = hero_data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def get_hero_name(hero_id: Optional[int], cache: Dict[int, str]) -> str:
     if hero_id is None:
         return "Unknown"
     if hero_id in cache:
         return cache[hero_id]
+
+    local_name = get_local_hero_name(hero_id)
+    if local_name != f"Hero {hero_id}":
+        cache[hero_id] = local_name
+        return local_name
+
     try:
-        resp = requests.get(HERO_DETAILS_URL.format(hero_id=hero_id), timeout=30)
+        params = {"language": "english"}
+        if HERO_CLIENT_VERSION:
+            params["client_version"] = HERO_CLIENT_VERSION
+
+        resp = requests.get(HERO_DETAILS_URL.format(hero_id=hero_id), params=params, timeout=30)
         resp.raise_for_status()
         hero_data = resp.json()
-        name = hero_data.get("name") or hero_data.get("class_name") or f"Hero {hero_id}"
+        name = _extract_hero_name(hero_data) or local_name
         cache[hero_id] = name
         return name
     except Exception:
-        cache[hero_id] = f"Hero {hero_id}"
+        cache[hero_id] = local_name
         return cache[hero_id]
 
 
