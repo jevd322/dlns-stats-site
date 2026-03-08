@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -28,6 +29,8 @@ HERO_DETAILS_URL = "https://assets.deadlock-api.com/v2/heroes/{hero_id}"
 HERO_CLIENT_VERSION = os.getenv("HERO_CLIENT_VERSION", "6181").strip()
 ITEM_DETAILS_URL = "https://assets.deadlock-api.com/v2/items/{item_id}"
 ITEM_CLIENT_VERSION = os.getenv("ITEM_CLIENT_VERSION", HERO_CLIENT_VERSION).strip()
+ITEM_REQUEST_TIMEOUT_S = int(os.getenv("ITEM_REQUEST_TIMEOUT_S", "6"))
+ITEM_LOOKUP_WORKERS = max(1, min(int(os.getenv("ITEM_LOOKUP_WORKERS", "12")), 32))
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
 STEAM_API_KEY = os.getenv("STEAM_API_KEY", "")
 
@@ -165,6 +168,62 @@ def _extract_item_name(item_data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _fetch_item_name_remote(item_id_int: int) -> str:
+    try:
+        params = {"language": "english"}
+        if ITEM_CLIENT_VERSION:
+            params["client_version"] = ITEM_CLIENT_VERSION
+        resp = requests.get(ITEM_DETAILS_URL.format(item_id=item_id_int), params=params, timeout=ITEM_REQUEST_TIMEOUT_S)
+        resp.raise_for_status()
+        item_data = resp.json()
+        return _extract_item_name(item_data) or f"Item {item_id_int}"
+    except Exception:
+        return f"Item {item_id_int}"
+
+
+def _collect_unique_item_ids(players: List[Dict[str, Any]]) -> List[int]:
+    unique: List[int] = []
+    seen: set[int] = set()
+    for p in players:
+        items = p.get("items")
+        if not isinstance(items, list):
+            continue
+        for item_event in items:
+            if not isinstance(item_event, dict):
+                continue
+            item_id = item_event.get("item_id")
+            try:
+                item_id_int = int(item_id)
+            except Exception:
+                continue
+            if item_id_int not in seen:
+                seen.add(item_id_int)
+                unique.append(item_id_int)
+    return unique
+
+
+def _prefetch_item_names(players: List[Dict[str, Any]], cache: Dict[int, str]) -> None:
+    unique_ids = _collect_unique_item_ids(players)
+    missing_ids = [iid for iid in unique_ids if iid not in cache]
+    if not missing_ids:
+        return
+
+    max_workers = min(ITEM_LOOKUP_WORKERS, len(missing_ids))
+    if max_workers <= 1:
+        for iid in missing_ids:
+            cache[iid] = _fetch_item_name_remote(iid)
+        return
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_fetch_item_name_remote, iid): iid for iid in missing_ids}
+        for future in as_completed(futures):
+            iid = futures[future]
+            try:
+                cache[iid] = future.result()
+            except Exception:
+                cache[iid] = f"Item {iid}"
+
+
 def get_item_name(item_id: Optional[int], cache: Dict[int, str]) -> str:
     if item_id is None:
         return "Unknown Item"
@@ -177,18 +236,8 @@ def get_item_name(item_id: Optional[int], cache: Dict[int, str]) -> str:
     if item_id_int in cache:
         return cache[item_id_int]
 
-    try:
-        params = {"language": "english"}
-        if ITEM_CLIENT_VERSION:
-            params["client_version"] = ITEM_CLIENT_VERSION
-        resp = requests.get(ITEM_DETAILS_URL.format(item_id=item_id_int), params=params, timeout=30)
-        resp.raise_for_status()
-        item_data = resp.json()
-        cache[item_id_int] = _extract_item_name(item_data) or f"Item {item_id_int}"
-        return cache[item_id_int]
-    except Exception:
-        cache[item_id_int] = f"Item {item_id_int}"
-        return cache[item_id_int]
+    cache[item_id_int] = _fetch_item_name_remote(item_id_int)
+    return cache[item_id_int]
 
 
 def to_steamid64(account_id: int) -> str:
@@ -348,6 +397,7 @@ def build_hero_breakdown(match_info: Dict[str, Any], name_map: Dict[int, str], m
     breakdown: List[Dict[str, Any]] = []
     hero_cache: Dict[int, str] = {}
     item_name_cache: Dict[int, str] = {}
+    _prefetch_item_names(players, item_name_cache)
 
     for p in players:
         stats_final = last_stats(p.get("stats"))
@@ -616,6 +666,8 @@ def process_match():  # type: ignore
 
                 yield json.dumps({"type": "log", "message": "Parsing final stats...", "percent": int((3 / total_steps) * 100)}) + "\n"
                 rows = build_rows(info, name_map)
+                if include_detailed:
+                    yield json.dumps({"type": "log", "message": "Detailed mode: building hero/item breakdown...", "percent": 85}) + "\n"
                 hero_details = build_hero_breakdown(info, name_map, match_input) if include_detailed else []
 
                 yield json.dumps({"type": "log", "message": "Preparing exports...", "percent": int((4 / total_steps) * 100)}) + "\n"
