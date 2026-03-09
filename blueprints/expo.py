@@ -691,4 +691,8 @@ def process_match():  # type: ignore
         except Exception as e:
             yield json.dumps({"type": "error", "message": f"Error: {e}"}) + "\n"
 
-    return Response(stream_with_context(generate()), mimetype="application/x-ndjson")
+    response = Response(stream_with_context(generate()), mimetype="application/x-ndjson")
+    # Hint reverse proxies (notably Nginx) to stream chunks immediately.
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Cache-Control"] = "no-cache"
+    return response

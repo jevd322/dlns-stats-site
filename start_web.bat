@@ -12,7 +12,7 @@ echo ========================================
 echo.
 
 echo Listening on http://127.0.0.1:5050
-%PYTHON_EXE% -m waitress --listen=127.0.0.1:5050 wsgi:app
+%PYTHON_EXE% -m waitress --listen=127.0.0.1:5050 --threads=12 --channel-timeout=180 wsgi:app
 
 if errorlevel 1 (
 	echo.
