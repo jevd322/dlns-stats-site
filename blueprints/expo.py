@@ -4,12 +4,16 @@ import csv
 import io
 import json
 import os
+import logging
+import threading
+import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 import requests
-from flask import Blueprint, Response, render_template, request, stream_with_context
+from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 from heroes import get_hero_name as get_local_hero_name
 
 # Unique, isolated Blueprint for the DLNS exporter UI and API
@@ -33,6 +37,93 @@ ITEM_REQUEST_TIMEOUT_S = int(os.getenv("ITEM_REQUEST_TIMEOUT_S", "6"))
 ITEM_LOOKUP_WORKERS = max(1, min(int(os.getenv("ITEM_LOOKUP_WORKERS", "12")), 32))
 STEAM_GET_SUMMARIES_URL = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
 STEAM_API_KEY = os.getenv("STEAM_API_KEY", "")
+
+JOB_RETENTION_SECONDS = int(os.getenv("EXPO_JOB_RETENTION_SECONDS", "3600"))
+JOB_MAX_LOG_LINES = int(os.getenv("EXPO_JOB_MAX_LOG_LINES", "1000"))
+
+_jobs: Dict[str, Dict[str, Any]] = {}
+_jobs_lock = threading.RLock()
+
+_expo_logger = logging.getLogger("expo.process")
+if not _expo_logger.handlers:
+    _expo_logger.setLevel(logging.INFO)
+    _log_dir = Path.cwd() / "data" / "logs"
+    _log_dir.mkdir(parents=True, exist_ok=True)
+    _handler = logging.FileHandler(_log_dir / "expo_process.log", encoding="utf-8")
+    _handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    _expo_logger.addHandler(_handler)
+
+
+def _cleanup_jobs() -> None:
+    now = time.time()
+    with _jobs_lock:
+        stale_ids = [
+            job_id
+            for job_id, job in _jobs.items()
+            if now - float(job.get("updated_at", now)) > JOB_RETENTION_SECONDS
+        ]
+        for job_id in stale_ids:
+            _jobs.pop(job_id, None)
+
+
+def _create_job(match_input: str, include_detailed: bool) -> str:
+    _cleanup_jobs()
+    job_id = uuid.uuid4().hex
+    now = time.time()
+    with _jobs_lock:
+        _jobs[job_id] = {
+            "id": job_id,
+            "status": "running",
+            "created_at": now,
+            "updated_at": now,
+            "match_input": match_input,
+            "include_detailed": include_detailed,
+            "logs": [],
+            "result": None,
+            "error": None,
+        }
+    return job_id
+
+
+def _append_job_log(job_id: str, message: str, event_type: str = "log", percent: Optional[int] = None) -> None:
+    now = time.time()
+    line: Dict[str, Any] = {"type": event_type, "message": str(message), "ts": now}
+    if percent is not None:
+        line["percent"] = int(percent)
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return
+        logs = job.setdefault("logs", [])
+        logs.append(line)
+        if len(logs) > JOB_MAX_LOG_LINES:
+            del logs[: len(logs) - JOB_MAX_LOG_LINES]
+        job["updated_at"] = now
+
+    pct = f" pct={percent}" if percent is not None else ""
+    _expo_logger.info("[job=%s] [%s]%s %s", job_id, event_type, pct, str(message))
+
+
+def _set_job_result(job_id: str, result: Dict[str, Any]) -> None:
+    now = time.time()
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return
+        job["result"] = result
+        job["status"] = "completed"
+        job["updated_at"] = now
+
+
+def _set_job_error(job_id: str, error_message: str) -> None:
+    now = time.time()
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return
+        job["error"] = str(error_message)
+        job["status"] = "failed"
+        job["updated_at"] = now
 
 HEADERS = [
     "Player Name",
@@ -548,6 +639,230 @@ def rows_to_tsv_no_match_id(rows: List[Dict[str, Any]], include_header: bool = F
     for r in rows or []:
         writer.writerow([r.get(h, "") for h in HEADERS])
     return output.getvalue()
+
+
+def _run_export_job(job_id: str, match_input: str, include_detailed: bool) -> None:
+    started = time.time()
+    _expo_logger.info("[job=%s] started include_detailed=%s input=%s", job_id, include_detailed, match_input)
+
+    try:
+        if not STEAM_API_KEY:
+            msg = "Error: STEAM_API_KEY missing. Set it in .env."
+            _append_job_log(job_id, msg, event_type="error")
+            _set_job_error(job_id, msg)
+            _expo_logger.error("[job=%s] %s", job_id, msg)
+            return
+
+        if not match_input:
+            msg = "Error: Match ID(s) required."
+            _append_job_log(job_id, msg, event_type="error")
+            _set_job_error(job_id, msg)
+            _expo_logger.error("[job=%s] %s", job_id, msg)
+            return
+
+        # Batch processing
+        if "," in match_input:
+            _append_job_log(job_id, "Batch processing detected...", event_type="batch_start", percent=0)
+            match_ids = [mid.strip() for mid in match_input.split(",") if mid.strip()]
+            invalid_ids = [mid for mid in match_ids if not mid.isdigit()]
+            if invalid_ids:
+                msg = f"Error: Invalid match IDs: {', '.join(invalid_ids)}"
+                _append_job_log(job_id, msg, event_type="error")
+                _set_job_error(job_id, msg)
+                _expo_logger.error("[job=%s] %s", job_id, msg)
+                return
+
+            total_matches = len(match_ids)
+            steps_per_match = 4
+            total_steps = max(total_matches * steps_per_match, 1)
+            _append_job_log(job_id, f"Processing {total_matches} matches...", event_type="log", percent=0)
+            all_rows: List[Dict[str, Any]] = []
+
+            for i, match_id in enumerate(match_ids):
+                try:
+                    base_step = i * steps_per_match
+                    overall_percent = int((base_step / total_steps) * 100)
+                    _append_job_log(
+                        job_id,
+                        f"Processing match {i + 1}/{total_matches}: {match_id}...",
+                        event_type="progress",
+                        percent=overall_percent,
+                    )
+
+                    info = fetch_match_info_cached(int(match_id))
+                    overall_percent = int(((base_step + 1) / total_steps) * 100)
+                    _append_job_log(job_id, "Fetched Cache Match", event_type="progress", percent=overall_percent)
+
+                    players = info.get("players", []) or []
+                    overall_percent = int(((base_step + 2) / total_steps) * 100)
+                    _append_job_log(
+                        job_id,
+                        f"Match {match_id}: Found {len(players)} players. Resolving names...",
+                        event_type="progress",
+                        percent=overall_percent,
+                    )
+
+                    account_ids_all = [p.get("account_id") for p in players if p.get("account_id") is not None]
+                    name_map = resolve_player_names_steam(account_ids_all, STEAM_API_KEY)
+
+                    overall_percent = int(((base_step + 3) / total_steps) * 100)
+                    _append_job_log(
+                        job_id,
+                        f"Match {match_id}: Parsing final stats...",
+                        event_type="progress",
+                        percent=overall_percent,
+                    )
+                    rows = build_rows(info, name_map, match_id)
+                    all_rows.extend(rows)
+
+                    overall_percent = int(((base_step + 4) / total_steps) * 100)
+                    _append_job_log(
+                        job_id,
+                        f"Match {match_id}: Complete ({len(rows)} players)",
+                        event_type="progress",
+                        percent=overall_percent,
+                    )
+
+                except requests.HTTPError as e:
+                    _append_job_log(job_id, f"Match {match_id}: HTTP error - {e}", event_type="progress")
+                except Exception as e:
+                    _append_job_log(job_id, f"Match {match_id}: Error - {e}", event_type="progress")
+
+            _append_job_log(job_id, "Preparing combined CSV export...", event_type="log", percent=98)
+            csv_text = rows_to_delimited(all_rows, ",", include_header=True, use_batch_headers=True)
+            tsv_text = rows_to_delimited(all_rows, "\t", include_header=False, use_batch_headers=True)
+            tsv_no_match_id = rows_to_tsv_no_match_id(all_rows, include_header=False)
+            result = {
+                "type": "batch_result",
+                "headers": BATCH_HEADERS,
+                "rows": all_rows,
+                "csv": csv_text,
+                "tsv": tsv_text,
+                "tsv_no_match_id": tsv_no_match_id,
+                "hero_details": [],
+                "total_matches": len(match_ids),
+                "total_players": len(all_rows),
+            }
+            _set_job_result(job_id, result)
+            _append_job_log(job_id, "Batch export ready.", event_type="progress", percent=100)
+            _expo_logger.info("[job=%s] completed batch matches=%s players=%s", job_id, len(match_ids), len(all_rows))
+            return
+
+        # Single match processing
+        if not match_input.isdigit():
+            msg = "Error: Match ID must be an integer."
+            _append_job_log(job_id, msg, event_type="error")
+            _set_job_error(job_id, msg)
+            _expo_logger.error("[job=%s] %s", job_id, msg)
+            return
+
+        total_steps = 4
+        _append_job_log(job_id, "Starting match processing...", event_type="progress", percent=0)
+        info = fetch_match_info_cached(int(match_input))
+        _append_job_log(job_id, "Fetched Cache Match", event_type="log", percent=int((1 / total_steps) * 100))
+
+        players = info.get("players", []) or []
+        _append_job_log(
+            job_id,
+            f"Found {len(players)} players. Resolving names via Steam...",
+            event_type="log",
+            percent=int((2 / total_steps) * 100),
+        )
+
+        account_ids_all = [p.get("account_id") for p in players if p.get("account_id") is not None]
+        name_map = resolve_player_names_steam(account_ids_all, STEAM_API_KEY)
+
+        _append_job_log(job_id, "Parsing final stats...", event_type="log", percent=int((3 / total_steps) * 100))
+        rows = build_rows(info, name_map)
+        if include_detailed:
+            _append_job_log(job_id, "Detailed mode: building hero/item breakdown...", event_type="log", percent=85)
+        hero_details = build_hero_breakdown(info, name_map, match_input) if include_detailed else []
+
+        _append_job_log(job_id, "Preparing exports...", event_type="log", percent=int((4 / total_steps) * 100))
+        csv_text = rows_to_delimited(rows, ",", include_header=True)
+        tsv_text = rows_to_delimited(rows, "\t", include_header=False)
+        result = {
+            "type": "result",
+            "headers": HEADERS,
+            "rows": rows,
+            "hero_details": hero_details,
+            "csv": csv_text,
+            "tsv": tsv_text,
+            "match_id": match_input,
+        }
+        _set_job_result(job_id, result)
+        _append_job_log(job_id, "Match export ready.", event_type="progress", percent=100)
+        _expo_logger.info(
+            "[job=%s] completed single match=%s players=%s detailed=%s elapsed=%.2fs",
+            job_id,
+            match_input,
+            len(rows),
+            include_detailed,
+            time.time() - started,
+        )
+
+    except Exception as e:
+        _set_job_error(job_id, str(e))
+        _append_job_log(job_id, f"Error: {e}", event_type="error")
+        _expo_logger.exception("[job=%s] crashed", job_id)
+
+
+@expo_bp.post("/process/start")
+def process_start() -> Any:  # type: ignore
+    payload = request.get_json(silent=True) or {}
+    match_input = str(payload.get("match_id", "")).strip()
+    include_detailed = bool(payload.get("include_detailed", False))
+
+    if not match_input:
+        return jsonify({"error": "Match ID(s) required."}), 400
+
+    job_id = _create_job(match_input, include_detailed)
+    worker = threading.Thread(
+        target=_run_export_job,
+        args=(job_id, match_input, include_detailed),
+        daemon=True,
+        name=f"expo-job-{job_id[:8]}",
+    )
+    worker.start()
+
+    return jsonify({
+        "job_id": job_id,
+        "status": "running",
+        "status_url": f"/dlns/process/status/{job_id}",
+    })
+
+
+@expo_bp.get("/process/status/<job_id>")
+def process_status(job_id: str) -> Any:  # type: ignore
+    try:
+        since = int(request.args.get("since", "0"))
+    except Exception:
+        since = 0
+    if since < 0:
+        since = 0
+
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return jsonify({"error": "Job not found"}), 404
+
+        logs = list(job.get("logs", []))
+        status = str(job.get("status", "running"))
+        done = status in ("completed", "failed")
+        sliced = logs[since:]
+
+        payload = {
+            "job_id": job_id,
+            "status": status,
+            "done": done,
+            "logs": sliced,
+            "next_since": since + len(sliced),
+            "error": job.get("error"),
+        }
+        if status == "completed":
+            payload["result"] = job.get("result")
+
+    return jsonify(payload)
 
 
 # --- Routes ---
