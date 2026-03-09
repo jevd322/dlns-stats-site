@@ -93,7 +93,7 @@ def create_app() -> Flask:
             "application/sitemap+xml",
             "application/javascript",
             "text/javascript",
-            "application/x-ndjson",          
+            # Keep NDJSON uncompressed so streaming progress can flush per chunk.
             "text/markdown",                 
             "text/csv",                      
             "text/tab-separated-values",     

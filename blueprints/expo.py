@@ -695,4 +695,6 @@ def process_match():  # type: ignore
     # Hint reverse proxies (notably Nginx) to stream chunks immediately.
     response.headers["X-Accel-Buffering"] = "no"
     response.headers["Cache-Control"] = "no-cache"
+    response.headers["Content-Encoding"] = "identity"
+    response.headers["X-Content-Type-Options"] = "nosniff"
     return response
