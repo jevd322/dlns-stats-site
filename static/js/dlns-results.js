@@ -45,10 +45,17 @@
 
     function renderHeroBreakdown() {
         if (!detailSection || !detailWrap) return;
-        if (isBatch || !heroDetails || !heroDetails.length) {
+        if (isBatch) {
             detailSection.style.display = 'none';
             detailWrap.style.display = 'none';
             detailWrap.innerHTML = '';
+            return;
+        }
+
+        if (!heroDetails || !heroDetails.length) {
+            detailSection.style.display = 'block';
+            detailWrap.style.display = 'block';
+            detailWrap.innerHTML = '<div class="dlns-note" style="padding:10px;">Detailed breakdown payload is empty for this run. Re-run with the detailed toggle enabled and ensure latest JS is loaded.</div>';
             return;
         }
 

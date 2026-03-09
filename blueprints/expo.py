@@ -451,6 +451,7 @@ def _build_item_timeline(items: Any, item_name_cache: Dict[int, str]) -> List[Di
         return []
 
     events: List[Dict[str, Any]] = []
+    seen: set[tuple[str, int, str]] = set()
     for item_event in items:
         if not isinstance(item_event, dict):
             continue
@@ -459,18 +460,27 @@ def _build_item_timeline(items: Any, item_name_cache: Dict[int, str]) -> List[Di
         bought_at = item_event.get("game_time_s")
         sold_at = item_event.get("sold_time_s")
 
-        if bought_at is not None:
-            buy_s = _to_int(bought_at, default=0)
-            events.append({
-                "type": "BUY",
-                "time_s": buy_s,
-                "time": format_game_time(buy_s),
-                "item": item_name,
-            })
+        buy_s = _to_int(bought_at, default=-1)
+        sold_s = _to_int(sold_at, default=-1)
 
-        if sold_at is not None:
-            sold_s = _to_int(sold_at, default=-1)
-            if sold_s >= 0:
+        if buy_s >= 0:
+            buy_key = ("BUY", buy_s, item_name)
+            if buy_key not in seen:
+                seen.add(buy_key)
+                events.append({
+                    "type": "BUY",
+                    "time_s": buy_s,
+                    "time": format_game_time(buy_s),
+                    "item": item_name,
+                })
+
+        # Deadlock payload frequently uses sold_time_s=0 for unsold items.
+        # Treat sell as valid only when it is strictly after match start and
+        # not earlier than the corresponding buy timestamp.
+        if sold_s > 0 and (buy_s < 0 or sold_s >= buy_s):
+            sell_key = ("SELL", sold_s, item_name)
+            if sell_key not in seen:
+                seen.add(sell_key)
                 events.append({
                     "type": "SELL",
                     "time_s": sold_s,
@@ -478,7 +488,8 @@ def _build_item_timeline(items: Any, item_name_cache: Dict[int, str]) -> List[Di
                     "item": item_name,
                 })
 
-    events.sort(key=lambda e: (e.get("time_s", 0), e.get("type", "")))
+    # Keep chronological order and show BUY before SELL at the same second.
+    events.sort(key=lambda e: (e.get("time_s", 0), 0 if e.get("type") == "BUY" else 1, e.get("item", "")))
     return events
 
 
@@ -545,7 +556,6 @@ def build_hero_breakdown(match_info: Dict[str, Any], name_map: Dict[int, str], m
             "Level": _to_int(stats_final.get("level")),
             "Max Health": _to_int(stats_final.get("max_health")),
             "Item Events": item_events,
-            "Item Timeline": " | ".join([f"{ev['time']} {ev['type']} {ev['item']}" for ev in item_events]),
         }
 
         if match_id is not None:
