@@ -34,13 +34,26 @@
 
     function renderTimeline(events) {
         if (!events || !events.length) return '<span class="dlns-muted">No item transactions</span>';
-        return events.map(function(ev) {
+        var lines = events.map(function(ev) {
             var cls = ev.type === 'SELL' ? 'dlns-chip-sell' : 'dlns-chip-buy';
             return '<span class="dlns-chip ' + cls + '">' +
                 escapeHtml((ev.time || '?') + ' ' + (ev.type || 'EVENT')) +
                 '</span> ' +
                 '<span>' + escapeHtml(ev.item || 'Unknown Item') + '</span>';
         }).join('<br>');
+
+        var buys = events.filter(function(ev) {
+            return ev && ev.type === 'BUY'
+        }).length;
+        var sells = events.filter(function(ev) {
+            return ev && ev.type === 'SELL'
+        }).length;
+
+        return '<details class="dlns-timeline">' +
+            '<summary>' + escapeHtml(events.length + ' events') +
+            ' <span class="dlns-muted">(' + escapeHtml(String(buys)) + ' buy / ' + escapeHtml(String(sells)) + ' sell)</span></summary>' +
+            '<div class="dlns-timeline-list">' + lines + '</div>' +
+            '</details>';
     }
 
     function renderHeroBreakdown() {
@@ -60,7 +73,7 @@
         }
 
         var html = '';
-        html += '<table class="dlns-table"><thead class="dlns-thead"><tr>' +
+        html += '<table class="dlns-table dlns-detail-table"><thead class="dlns-thead"><tr>' +
             '<th class="dlns-th">Player</th>' +
             '<th class="dlns-th">Hero</th>' +
             '<th class="dlns-th">Team</th>' +
@@ -79,7 +92,7 @@
             var lhD = formatInt(d['Last Hits']) + '/' + formatInt(d['Denies']);
             var heals = formatInt(d['Self Healing']) + '/' + formatInt(d['Teammate Healing']);
 
-            html += '<tr class="dlns-tr">' +
+            html += '<tr class="dlns-tr dlns-detail-row">' +
                 '<td class="dlns-td"><strong>' + escapeHtml(d['Player Name'] || 'Unknown') + '</strong></td>' +
                 '<td class="dlns-td">' + escapeHtml(d.Hero || 'Unknown') + '</td>' +
                 '<td class="dlns-td">' + escapeHtml(d.Team || 'Unknown') + '</td>' +
