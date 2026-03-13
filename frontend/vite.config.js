@@ -25,12 +25,20 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/db': {
+        target: 'http://127.0.0.1:5050',
+        changeOrigin: true,
+      },
       '/sounds': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5050',
         changeOrigin: true,
       },
       '/rank': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5050',
+        changeOrigin: true,
+      },
+      '/match': {
+        target: 'http://127.0.0.1:5050',
         changeOrigin: true,
       },
     },

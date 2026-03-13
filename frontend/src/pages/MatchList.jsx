@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { matchesApi } from '../api/matchesApi';
+import { Link } from 'react-router-dom';
 
 function MatchList() {
   const [matches, setMatches] = useState([]);
@@ -7,30 +7,26 @@ function MatchList() {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [filters, setFilters] = useState({
-    team: '',
-    game_mode: '',
-    order: 'desc'
-  });
+  const [total, setTotal] = useState(0);
+  const perPage = 20;
 
   useEffect(() => {
-    loadMatches();
-  }, [page, filters]);
+    fetchMatches();
+  }, [page]);
 
-  const loadMatches = async () => {
+  const fetchMatches = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const data = await matchesApi.getMatches({
-        page,
-        per_page: 20,
-        ...filters
-      });
+      const response = await fetch(`/db/matches/latest/paged?page=${page}&per_page=${perPage}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch matches');
+      } 
+      const data = await response.json();
       setMatches(data.matches || []);
       setTotalPages(data.total_pages || 1);
+      setTotal(data.total || 0);
     } catch (err) {
       setError(err.message);
-      console.error('Error loading matches:', err);
     } finally {
       setLoading(false);
     }
@@ -45,112 +41,107 @@ function MatchList() {
                  : `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp).toLocaleString();
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString();
   };
 
   const teamName = (team) => {
     return team === 0 ? 'Amber' : team === 1 ? 'Sapphire' : 'Unknown';
   };
 
-  if (loading && matches.length === 0) {
-    return <div className="container loading">Loading matches...</div>;
+  if (loading) {
+    return (
+      <div className="w-full p-8">
+        <div className="text-center text-xl">Loading matches...</div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="container error">
-        <p>Error: {error}</p>
-        <button onClick={loadMatches}>Retry</button>
+      <div className="w-full p-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          Error: {error}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container match-list">
-      <h2>Recent Matches</h2>
+    <div className="w-full p-8">
+      <h1 className="text-3xl font-bold mb-6">Match List</h1>
       
-      {/* Filters */}
-      <div className="filters">
-        <label>
-          Team:
-          <select 
-            value={filters.team} 
-            onChange={(e) => setFilters({ ...filters, team: e.target.value })}
-          >
-            <option value="">All Teams</option>
-            <option value="0">Amber</option>
-            <option value="1">Sapphire</option>
-          </select>
-        </label>
-        
-        <label>
-          Order:
-          <select 
-            value={filters.order} 
-            onChange={(e) => setFilters({ ...filters, order: e.target.value })}
-          >
-            <option value="desc">Newest First</option>
-            <option value="asc">Oldest First</option>
-          </select>
-        </label>
-        
-        <button onClick={() => { setPage(1); loadMatches(); }}>
-          Apply Filters
-        </button>
+      {/* Filters Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">Filters</h2>
+        {/* Filter controls will go here */}
       </div>
 
       {/* Match Table */}
-      {matches.length === 0 ? (
-        <p className="no-matches">No matches found. Try adding match data with <code>python main.py -matchfile matches.txt</code></p>
-      ) : (
-        <>
-          <table className="match-table">
-            <thead>
+      <div className="bg-white shadow rounded-lg p-6">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left p-4">Match ID</th>
+              <th className="text-left p-4">Duration</th>
+              <th className="text-left p-4">Date</th>
+              <th className="text-left p-4">Winner</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matches.length === 0 ? (
               <tr>
-                <th>Match ID</th>
-                <th>Duration</th>
-                <th>Winner</th>
-                <th>Mode</th>
-                <th>Date</th>
+                <td colSpan="4" className="p-4 text-center text-gray-500">
+                  No matches found
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {matches.map((match) => (
-                <tr key={match.match_id}>
-                  <td>
-                    <a href={`/matches/${match.match_id}`}>{match.match_id}</a>
+            ) : (
+              matches.map((match) => (
+                <tr key={match.match_id} className="border-b hover:bg-gray-50">
+                  <td className="p-4">
+                    <Link 
+                      to={`/match/${match.match_id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {match.match_id}
+                    </Link>
                   </td>
-                  <td>{formatDuration(match.duration_s)}</td>
-                  <td className={`team-${match.winning_team}`}>
-                    {teamName(match.winning_team)}
-                  </td>
-                  <td>{match.game_mode || '-'}</td>
-                  <td>{formatDate(match.start_time || match.created_at)}</td>
+                  <td className="p-4">{formatDuration(match.duration_s)}</td>
+                  <td className="p-4">{formatDate(match.start_time)}</td>
+                  <td className="p-4">{teamName(match.winning_team)}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              ))
+            )}
+          </tbody>
+        </table>
 
-          {/* Pagination */}
-          <div className="pagination">
-            <button 
-              onClick={() => setPage(p => Math.max(1, p - 1))} 
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between mt-6 pt-4 border-t">
+          <div className="text-sm text-gray-600">
+            Showing {matches.length > 0 ? ((page - 1) * perPage) + 1 : 0} to {Math.min(page * perPage, total)} of {total} matches
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               Previous
             </button>
-            <span>Page {page} of {totalPages}</span>
-            <button 
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+            <span className="px-4 py-2 text-gray-700">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               Next
             </button>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
