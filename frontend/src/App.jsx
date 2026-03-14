@@ -60,7 +60,7 @@ function App() {
         
         <main className="w-full max-w-7xl mx-auto flex-1 py-8">
           <Routes>
-            <Route path="/" element={<MatchList />} />
+            <Route path="/matchlist" element={<MatchList />} />
             <Route path="/match/:matchId" element={<MatchDetail />} />
             <Route path="/player/:accountId" element={<PlayerDetail />} />
             <Route path="/heroes" element={<HeroesList />} />
