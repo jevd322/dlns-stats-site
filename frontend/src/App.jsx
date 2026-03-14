@@ -5,6 +5,7 @@ import MatchDetail from './pages/MatchDetail';
 import PlayerDetail from './pages/PlayerDetail';
 import HeroDetail from './pages/HeroDetail';
 import HeroesList from './pages/HeroesList';
+import ItemsList from './pages/ItemsList';
 import Stats from './pages/Stats';
 import { SoundLibrary } from './pages/sounds.jsx';
 import { SoundsDev } from './pages/dev.jsx';
@@ -52,13 +53,12 @@ function Navigation() {
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen flex flex-col bg-gray-50">
-
+      <div className="min-h-screen flex flex-col bg-base">
 
         <DLNS_Header/>
         
         
-        <main className="w-full flex-1 py-8">
+        <main className="w-full max-w-7xl mx-auto flex-1 py-8">
           <Routes>
             <Route path="/" element={<MatchList />} />
             <Route path="/match/:matchId" element={<MatchDetail />} />

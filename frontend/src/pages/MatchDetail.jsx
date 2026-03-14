@@ -124,9 +124,9 @@ function MatchDetail() {
         </div>
       </div>
       
-      <h1 className="text-3xl font-bold mb-2">Match {matchId}</h1>
+      <h1 className="text-gray-300 text-3xl font-bold mb-2">Match {matchId}</h1>
       {currentMatch && currentMatch.start_time && (
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-500 mb-6">
           {formatDate(currentMatch.start_time)}
         </p>
       )}
@@ -134,7 +134,7 @@ function MatchDetail() {
       {/* Team Amber */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-4 text-amber-600">Team Amber</h2>
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-panel text-gray-300 shadow rounded-lg p-6 ">
           <table className="w-full">
             <thead>
               <tr className="border-b">
@@ -183,7 +183,7 @@ function MatchDetail() {
       {/* Team Sapphire */}
       <div>
         <h2 className="text-2xl font-bold mb-4 text-blue-600">Team Sapphire</h2>
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
           <table className="w-full">
             <thead>
               <tr className="border-b">

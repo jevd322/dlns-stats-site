@@ -26,9 +26,9 @@ function DLNS_Header({
   ];
 
   return (
-    <header className={`bg-stone-800 text-white shadow-lg ${className}`}>
+    <header className={`w-full bg-slate-800/90 text-white shadow-panel ${className}`}>
       <div className="min-h-16">
-        <div className="flex items-center justify-between container mx-auto pl-4 h-16">
+        <div className="flex items-center max-w-7xl  justify-between container mx-auto p-4 h-16">
           {/* Navigation Items */}
           <nav className="flex items-center gap-6">
             {navItems.map((item, index) => (

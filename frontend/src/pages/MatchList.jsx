@@ -70,19 +70,13 @@ function MatchList() {
 
   return (
     <div className="w-full p-8">
-      <h1 className="text-3xl font-bold mb-6">Match List</h1>
+      <h1 className="text-gray-100 text-3xl font-bold mb-6">Match List</h1>
       
-      {/* Filters Section */}
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Filters</h2>
-        {/* Filter controls will go here */}
-      </div>
-
       {/* Match Table */}
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="bg-input border border-border-light shadow rounded-lg p-6">
         <table className="w-full">
           <thead>
-            <tr className="border-b">
+            <tr className="border-b border-border-light text-white">
               <th className="text-left p-4">Match ID</th>
               <th className="text-left p-4">Duration</th>
               <th className="text-left p-4">Date</th>
@@ -98,7 +92,7 @@ function MatchList() {
               </tr>
             ) : (
               matches.map((match) => (
-                <tr key={match.match_id} className="border-b hover:bg-gray-50">
+                <tr key={match.match_id} className="border-b border-border-light text-gray-200 hover:bg-hover">
                   <td className="p-4">
                     <Link 
                       to={`/match/${match.match_id}`}
