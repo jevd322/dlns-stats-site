@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, make_response, Response
 from flask_compress import Compress
+from flask_cors import CORS
 try:
     import markdown
 except ImportError:
@@ -101,6 +102,18 @@ def create_app() -> Flask:
         TEMPLATES_AUTO_RELOAD=False,
     )
     compress.init_app(app)
+    
+    # Enable CORS for React frontend development (Vite runs on port 5173)
+    # In production, restrict origins to your actual domain
+    CORS(app, resources={
+        r"/db/*": {
+            "origins": [
+                "http://localhost:5173",  # Vite dev server
+                "http://127.0.0.1:5173",
+                os.getenv("FRONTEND_URL", "")  # Production frontend URL
+            ]
+        }
+    })
 
     # Register blueprints
     app.register_blueprint(db_api_bp)
