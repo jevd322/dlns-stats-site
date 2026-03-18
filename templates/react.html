@@ -70,6 +70,20 @@
     <script type="module" src="{{ url_for('static', filename='react-app/vo.js') }}"></script>
   {% elif page == "vo_admin" %}
     <script type="module" src="{{ url_for('static', filename='react-app/vo_admin.js') }}"></script>
+  {% elif page == "matchlist" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/matchlist.js') }}"></script>
+  {% elif page == "match_detail" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/match_detail.js') }}"></script>
+  {% elif page == "player_detail" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/player_detail.js') }}"></script>
+  {% elif page == "heroes" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/heroes.js') }}"></script>
+  {% elif page == "hero_detail" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/hero_detail.js') }}"></script>
+  {% elif page == "stats" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/stats.js') }}"></script>
+  {% elif page == "items" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/items.js') }}"></script>
   {% endif %}
 </body>
 </html>

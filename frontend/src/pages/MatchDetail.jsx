@@ -57,7 +57,15 @@ function MatchDetail() {
   };
 
   const getHeroName = (heroId) => {
-    return heroes[heroId] || `Hero ${heroId}`;
+    const hero = heroes[heroId];
+    return hero?.name || hero || `Hero ${heroId}`;
+  };
+
+  const getHeroIcon = (heroId) => {
+    const heroName = getHeroName(heroId);
+    // Convert hero name to lowercase and replace spaces with underscores
+    const formattedName = heroName.toLowerCase().replace(/\s+/g, '_');
+    return `/static/images/hero icons/${formattedName}_sm_psd.png`;
   };
 
   const currentIndex = matches.findIndex(m => m.match_id === parseInt(matchId));
@@ -135,19 +143,38 @@ function MatchDetail() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-4 text-amber-600">Team Amber</h2>
         <div className="bg-panel text-gray-300 shadow rounded-lg p-6 ">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-3">Player</th>
-                <th className="text-left p-3">Hero</th>
-                <th className="text-left p-3">K/D/A</th>
-                <th className="text-left p-3">Net Worth</th>
+                <th className="text-left p-3 w-[20%]">Player</th>
+                <th className="text-left p-3 w-[13%]">K/D/A</th>
+                <th className="text-left p-3 w-[13%]">Souls</th>
+                <th className="text-left p-3 w-[13%]">Player DMG</th>
+                <th className="text-left p-3 w-[13%]">Obj DMG</th>
+                <th className="text-left p-3 w-[28%]">Items</th>
               </tr>
             </thead>
             <tbody>
               {amberPlayers.map((player, idx) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  <td className="p-3">
+                <tr key={idx} className="border-b hover:bg-slate-800/90">
+                  <td className="p-3 flex flex-row gap-4">
+                     {player.hero_id ? (
+                      <Link 
+                        to={`/hero/${player.hero_id}`}
+                        className="block"
+                        title={getHeroName(player.hero_id)}
+                      >
+                        <img 
+                          src={getHeroIcon(player.hero_id)} 
+                          alt={getHeroName(player.hero_id)}
+                          className="w-8 h-8 rounded-md object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = getHeroName(player.hero_id);
+                          }}
+                        />
+                      </Link>
+                    ) : '-'}
                     {player.account_id ? (
                       <Link 
                         to={`/player/${player.account_id}`}
@@ -160,19 +187,14 @@ function MatchDetail() {
                     )}
                   </td>
                   <td className="p-3">
-                    {player.hero_id ? (
-                      <Link 
-                        to={`/hero/${player.hero_id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {getHeroName(player.hero_id)}
-                      </Link>
-                    ) : '-'}
-                  </td>
-                  <td className="p-3">
                     {player.kills || 0} / {player.deaths || 0} / {player.assists || 0}
                   </td>
                   <td className="p-3">{player.net_worth || 0}</td>
+                  <td className="p-3">{(player.player_damage || 0).toLocaleString()}</td>
+                  <td className="p-3">{(player.obj_damage || 0).toLocaleString()}</td>
+                  <td className="p-3">
+                    {/* Items placeholder */}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -184,19 +206,38 @@ function MatchDetail() {
       <div>
         <h2 className="text-2xl font-bold mb-4 text-blue-600">Team Sapphire</h2>
         <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-3">Player</th>
-                <th className="text-left p-3">Hero</th>
-                <th className="text-left p-3">K/D/A</th>
-                <th className="text-left p-3">Net Worth</th>
+                <th className="text-left p-3 w-[20%]">Player</th>
+                <th className="text-left p-3 w-[13%]">K/D/A</th>
+                <th className="text-left p-3 w-[13%]">Souls</th>
+                <th className="text-left p-3 w-[13%]">Player DMG</th>
+                <th className="text-left p-3 w-[13%]">Obj DMG</th>
+                <th className="text-left p-3 w-[28%]">Items</th>
               </tr>
             </thead>
             <tbody>
               {sapphirePlayers.map((player, idx) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  <td className="p-3">
+                <tr key={idx} className="border-b hover:bg-slate-800/90">
+                   <td className="p-3 flex flex-row gap-4">
+                     {player.hero_id ? (
+                      <Link 
+                        to={`/hero/${player.hero_id}`}
+                        className="block"
+                        title={getHeroName(player.hero_id)}
+                      >
+                        <img 
+                          src={getHeroIcon(player.hero_id)} 
+                          alt={getHeroName(player.hero_id)}
+                          className="w-8 h-8 rounded-md object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = getHeroName(player.hero_id);
+                          }}
+                        />
+                      </Link>
+                    ) : '-'}
                     {player.account_id ? (
                       <Link 
                         to={`/player/${player.account_id}`}
@@ -208,20 +249,16 @@ function MatchDetail() {
                       player.persona_name || 'Anonymous'
                     )}
                   </td>
-                  <td className="p-3">
-                    {player.hero_id ? (
-                      <Link 
-                        to={`/hero/${player.hero_id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {getHeroName(player.hero_id)}
-                      </Link>
-                    ) : '-'}
-                  </td>
+
                   <td className="p-3">
                     {player.kills || 0} / {player.deaths || 0} / {player.assists || 0}
                   </td>
                   <td className="p-3">{player.net_worth || 0}</td>
+                  <td className="p-3">{(player.player_damage || 0).toLocaleString()}</td>
+                  <td className="p-3">{(player.obj_damage || 0).toLocaleString()}</td>
+                  <td className="p-3">
+                    {/* Items placeholder */}
+                  </td>
                 </tr>
               ))}
             </tbody>

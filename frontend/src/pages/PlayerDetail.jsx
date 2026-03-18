@@ -80,7 +80,7 @@ function PlayerDetail() {
 
       {/* Player Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">{user?.persona_name || 'Unknown Player'}</h1>
+        <h1 className="text-white text-3xl font-bold mb-2">{user?.persona_name || 'Unknown Player'}</h1>
         <p className="text-gray-600">Account ID: {accountId}</p>
       </div>
 

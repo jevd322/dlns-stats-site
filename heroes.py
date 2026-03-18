@@ -32,7 +32,11 @@ def _load_if_needed() -> None:
                 # Convert keys to strings to match what the API expects
                 _names.clear()
                 for k, v in heroes_data.items():
-                    _names[str(k)] = str(v)
+                    # Handle both old format (string) and new format (dict with name/released)
+                    if isinstance(v, dict):
+                        _names[str(k)] = v.get("name", str(v))
+                    else:
+                        _names[str(k)] = str(v)
             _mtime = current_mtime
             print(f"Loaded {len(_names)} hero names")
     except Exception as e:
