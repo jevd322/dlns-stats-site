@@ -725,6 +725,63 @@ def api_download_all():
         log.exception("[Download] Failed to create zip: %s", e)
         return jsonify({"ok": False, "error": "Failed to create zip file"}), 500
 
+@wavebox_bp.get("/api/download")
+def api_download_key():
+    """
+    API-key-authenticated download endpoint.
+    Query params:
+      - api_key: must match SOUNDS_DOWNLOAD_API_KEY in .env
+      - filter:  'pending' | 'accepted' | 'all' (default: 'accepted')
+    """
+    provided_key = request.args.get("api_key", "").strip()
+    expected_key = os.environ.get("SOUNDS_DOWNLOAD_API_KEY", "")
+
+    if not expected_key:
+        log.error("[Download] SOUNDS_DOWNLOAD_API_KEY is not set in environment")
+        abort(500)
+
+    if not provided_key or provided_key != expected_key:
+        abort(403)
+
+    filter_mode = request.args.get("filter", "accepted").strip().lower()
+    if filter_mode not in ("pending", "accepted", "all"):
+        return jsonify({"ok": False, "error": "filter must be 'pending', 'accepted', or 'all'"}), 400
+
+    uploads = _load_upload_log()
+
+    if filter_mode == "all":
+        entries = list(uploads.values())
+    else:
+        entries = [e for e in uploads.values() if e.get("status") == filter_mode]
+
+    if not entries:
+        return jsonify({"ok": False, "error": f"No {filter_mode} recordings found"}), 404
+
+    zip_buffer = io.BytesIO()
+    try:
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for entry in entries:
+                rel = entry.get("saved_to")
+                if not rel:
+                    continue
+                p = (RECORDED_ROOT / rel).resolve()
+                if not str(p).startswith(str(RECORDED_ROOT)) or not p.exists():
+                    log.warning("[Download] Skipping invalid/missing path: %s", rel)
+                    continue
+                zf.write(p, arcname=rel)
+
+        zip_buffer.seek(0)
+        log.info("✅ [Download] API key download: filter=%s count=%d", filter_mode, len(entries))
+        return send_file(
+            zip_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"sounds_{filter_mode}_{int(time.time())}.zip"
+        )
+    except Exception as e:
+        log.exception("[Download] Failed to create zip: %s", e)
+        return jsonify({"ok": False, "error": "Failed to create zip file"}), 500
+
 @wavebox_bp.get("/api/uploads")
 def api_uploads():
     """Fetch all uploads for the dev dashboard (admin-only)."""
