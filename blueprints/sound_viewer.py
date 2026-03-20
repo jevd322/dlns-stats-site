@@ -63,6 +63,8 @@ for d in (MEDIA_ROOT, CACHE_DIR, RECORDED_ROOT):
     d.mkdir(parents=True, exist_ok=True)
 
 _cache_state = {"last_hash": ""}
+_backup_state = {"started": False}
+_upload_log_lock = threading.Lock()
 
 # =====================================================
 # ---------------- CACHE UTILITIES ----------------
@@ -249,6 +251,7 @@ def _init_cache_watcher():
         return
     _cache_watcher_started = True
     _launch_background_cache_builder()
+    _launch_backup_watcher()
     def watch_loop():
         while True:
             time.sleep(300)
@@ -372,6 +375,72 @@ def _save_upload_log(data):
         UPLOAD_LOG.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         log.warning("[Upload] Failed to write log: %s", e)
+
+def _sync_recorded_backups() -> int:
+    """
+    Ensure every audio file in data/recorded has a log entry.
+    Missing entries are recovered as system backup uploads.
+    """
+    if not RECORDED_ROOT.exists():
+        return 0
+
+    now_ts = int(time.time())
+
+    with _upload_log_lock:
+        uploads = _load_upload_log()
+        existing_saved_to = {
+            str(entry.get("saved_to", "")).replace("\\", "/").lower()
+            for entry in uploads.values()
+            if entry.get("saved_to")
+        }
+
+        added = 0
+        for fpath in RECORDED_ROOT.rglob("*"):
+            if not fpath.is_file() or not is_allowed_file(fpath):
+                continue
+
+            rel = str(fpath.relative_to(RECORDED_ROOT)).replace("\\", "/").lower()
+            if rel in existing_saved_to:
+                continue
+
+            entry_id = f"backup-{now_ts}-{added}-{hashlib.sha1(rel.encode('utf-8')).hexdigest()[:10]}"
+            uploads[entry_id] = {
+                "user": {
+                    "id": "system-backup",
+                    "username": "System Backup",
+                    "avatar": None,
+                },
+                "filename": fpath.name,
+                "path": rel,
+                "saved_to": rel,
+                "timestamp": now_ts,
+                "status": "pending",
+                "is_backup": True,
+                "backup_note": "Recovered by hourly backup scan (missing upload log entry).",
+            }
+            existing_saved_to.add(rel)
+            added += 1
+
+        if added:
+            _save_upload_log(uploads)
+            log.warning("[BackupSync] Added %d recovered upload entries as System Backup", added)
+
+    return added
+
+def _launch_backup_watcher():
+    if _backup_state["started"]:
+        return
+    _backup_state["started"] = True
+
+    def backup_loop():
+        while True:
+            try:
+                _sync_recorded_backups()
+            except Exception as e:
+                log.warning("[BackupSync] Error: %s", e)
+            time.sleep(3600)
+
+    threading.Thread(target=backup_loop, daemon=True).start()
 
 def is_owner():
     user = get_current_user()
