@@ -1,6 +1,6 @@
 # ruff: noqa
 from __future__ import annotations
-import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading, shutil, io, zipfile
+import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading, shutil, io, zipfile, sqlite3
 from pathlib import Path
 from flask import (
     Blueprint, jsonify, send_file, abort, render_template,
@@ -16,6 +16,7 @@ MEDIA_ROOT = Path("static/sounds").resolve()
 CACHE_DIR = Path("_cache").resolve()
 RECORDED_ROOT = Path("data/recorded").resolve()
 UPLOAD_LOG = RECORDED_ROOT / "_uploads.json"
+UPLOAD_DB = Path("data/sounds_uploads.sqlite3").resolve()
 
 TRANSCODE_ENABLED = True
 CACHE_TRANSCODE = True
@@ -64,7 +65,9 @@ for d in (MEDIA_ROOT, CACHE_DIR, RECORDED_ROOT):
 
 _cache_state = {"last_hash": ""}
 _backup_state = {"started": False}
-_upload_log_lock = threading.Lock()
+_upload_log_lock = threading.RLock()
+_uploads_db_ready = False
+_backup_sync_state = {"running": False, "last_started": 0}
 
 # =====================================================
 # ---------------- CACHE UTILITIES ----------------
@@ -362,19 +365,170 @@ def stream(relpath):
 # =====================================================
 # ---------------- UPLOAD SYSTEM ----------------
 # =====================================================
-def _load_upload_log():
-    if UPLOAD_LOG.exists():
+def _upload_db_conn():
+    conn = sqlite3.connect(str(UPLOAD_DB))
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def _upsert_upload_row(conn, upload_id: str, entry: dict):
+    user = entry.get("user") if isinstance(entry.get("user"), dict) else {}
+    conn.execute(
+        """
+        INSERT INTO uploads (
+            upload_id, filename, path, saved_to, timestamp, status, accepted_at,
+            user_id, user_username, user_avatar, is_backup, backup_note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(upload_id) DO UPDATE SET
+            filename=excluded.filename,
+            path=excluded.path,
+            saved_to=excluded.saved_to,
+            timestamp=excluded.timestamp,
+            status=excluded.status,
+            accepted_at=excluded.accepted_at,
+            user_id=excluded.user_id,
+            user_username=excluded.user_username,
+            user_avatar=excluded.user_avatar,
+            is_backup=excluded.is_backup,
+            backup_note=excluded.backup_note
+        """,
+        (
+            str(upload_id),
+            entry.get("filename"),
+            entry.get("path"),
+            entry.get("saved_to"),
+            entry.get("timestamp"),
+            entry.get("status", "pending"),
+            entry.get("accepted_at"),
+            user.get("id"),
+            user.get("username") or user.get("name"),
+            user.get("avatar"),
+            1 if entry.get("is_backup") else 0,
+            entry.get("backup_note"),
+        ),
+    )
+
+def _ensure_upload_db():
+    global _uploads_db_ready
+    if _uploads_db_ready:
+        return
+
+    with _upload_log_lock:
+        if _uploads_db_ready:
+            return
+
+        UPLOAD_DB.parent.mkdir(parents=True, exist_ok=True)
+        conn = _upload_db_conn()
         try:
-            return json.loads(UPLOAD_LOG.read_text("utf-8"))
-        except Exception:
-            return {}
-    return {}
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS uploads (
+                    upload_id TEXT PRIMARY KEY,
+                    filename TEXT,
+                    path TEXT,
+                    saved_to TEXT,
+                    timestamp INTEGER,
+                    status TEXT,
+                    accepted_at INTEGER,
+                    user_id TEXT,
+                    user_username TEXT,
+                    user_avatar TEXT,
+                    is_backup INTEGER DEFAULT 0,
+                    backup_note TEXT
+                )
+                """
+            )
+
+            row = conn.execute("SELECT COUNT(*) AS c FROM uploads").fetchone()
+            db_count = int(row["c"] if row else 0)
+
+            if db_count == 0 and UPLOAD_LOG.exists():
+                try:
+                    legacy = json.loads(UPLOAD_LOG.read_text("utf-8"))
+                    if isinstance(legacy, dict):
+                        migrated = 0
+                        for upload_id, entry in legacy.items():
+                            if isinstance(entry, dict):
+                                _upsert_upload_row(conn, str(upload_id), entry)
+                                migrated += 1
+                        conn.commit()
+                        log.warning("[UploadDB] Migrated %d entries from legacy JSON log", migrated)
+                except Exception as e:
+                    log.warning("[UploadDB] Legacy JSON migration failed: %s", e)
+
+            _uploads_db_ready = True
+        finally:
+            conn.close()
+
+def _row_to_upload_entry(row: sqlite3.Row) -> dict:
+    user_id = row["user_id"]
+    username = row["user_username"]
+    avatar = row["user_avatar"]
+
+    user = {
+        "id": user_id,
+        "username": username,
+        "name": username,
+        "avatar": avatar,
+    }
+
+    entry = {
+        "user": user,
+        "filename": row["filename"],
+        "path": row["path"],
+        "saved_to": row["saved_to"],
+        "timestamp": row["timestamp"],
+        "status": row["status"] or "pending",
+    }
+
+    if row["accepted_at"] is not None:
+        entry["accepted_at"] = row["accepted_at"]
+    if int(row["is_backup"] or 0) == 1:
+        entry["is_backup"] = True
+    if row["backup_note"]:
+        entry["backup_note"] = row["backup_note"]
+
+    return entry
+
+def _load_upload_log():
+    try:
+        _ensure_upload_db()
+        conn = _upload_db_conn()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM uploads ORDER BY COALESCE(timestamp, 0) ASC, upload_id ASC"
+            ).fetchall()
+            return {row["upload_id"]: _row_to_upload_entry(row) for row in rows}
+        finally:
+            conn.close()
+    except Exception as e:
+        log.warning("[UploadDB] Read failed: %s", e)
+        return {}
 
 def _save_upload_log(data):
     try:
-        UPLOAD_LOG.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _ensure_upload_db()
+        with _upload_log_lock:
+            conn = _upload_db_conn()
+            try:
+                existing_rows = conn.execute("SELECT upload_id FROM uploads").fetchall()
+                existing_ids = {row["upload_id"] for row in existing_rows}
+                incoming_ids = set()
+
+                for upload_id, entry in (data or {}).items():
+                    upload_id = str(upload_id)
+                    incoming_ids.add(upload_id)
+                    if isinstance(entry, dict):
+                        _upsert_upload_row(conn, upload_id, entry)
+
+                stale_ids = existing_ids - incoming_ids
+                for stale_id in stale_ids:
+                    conn.execute("DELETE FROM uploads WHERE upload_id = ?", (stale_id,))
+
+                conn.commit()
+            finally:
+                conn.close()
     except Exception as e:
-        log.warning("[Upload] Failed to write log: %s", e)
+        log.warning("[UploadDB] Write failed: %s", e)
 
 def _sync_recorded_backups() -> int:
     """
@@ -382,60 +536,101 @@ def _sync_recorded_backups() -> int:
     Missing entries are recovered as system backup uploads.
     """
     if not RECORDED_ROOT.exists():
+        log.warning("[BackupSync] Recorded root missing: %s", RECORDED_ROOT)
         return 0
 
+    started_at = time.time()
     now_ts = int(time.time())
 
-    with _upload_log_lock:
-        uploads = _load_upload_log()
-        existing_saved_to = {
-            str(entry.get("saved_to", "")).replace("\\", "/").lower()
-            for entry in uploads.values()
-            if entry.get("saved_to")
+    uploads = _load_upload_log()
+    log_entry_count = len(uploads)
+    existing_saved_to = {
+        str(entry.get("saved_to", "")).replace("\\", "/").lower()
+        for entry in uploads.values()
+        if entry.get("saved_to")
+    }
+
+    added = 0
+    scanned_audio_files = 0
+    recovered_paths = []
+    for fpath in RECORDED_ROOT.rglob("*"):
+        if not fpath.is_file() or not is_allowed_file(fpath):
+            continue
+
+        scanned_audio_files += 1
+        rel = str(fpath.relative_to(RECORDED_ROOT)).replace("\\", "/").lower()
+        if rel in existing_saved_to:
+            continue
+
+        entry_id = f"backup-{now_ts}-{added}-{hashlib.sha1(rel.encode('utf-8')).hexdigest()[:10]}"
+        uploads[entry_id] = {
+            "user": {
+                "id": "system-backup",
+                "username": "System Backup",
+                "avatar": None,
+            },
+            "filename": fpath.name,
+            "path": rel,
+            "saved_to": rel,
+            "timestamp": now_ts,
+            "status": "pending",
+            "is_backup": True,
+            "backup_note": "Recovered by hourly backup scan (missing upload log entry).",
         }
+        existing_saved_to.add(rel)
+        recovered_paths.append(rel)
+        added += 1
 
-        added = 0
-        for fpath in RECORDED_ROOT.rglob("*"):
-            if not fpath.is_file() or not is_allowed_file(fpath):
-                continue
+    if added:
+        _save_upload_log(uploads)
+        log.warning("[BackupSync] Added %d recovered upload entries as System Backup", added)
+        log.warning("[BackupSync] Recovered paths (up to 10): %s", ", ".join(recovered_paths[:10]))
 
-            rel = str(fpath.relative_to(RECORDED_ROOT)).replace("\\", "/").lower()
-            if rel in existing_saved_to:
-                continue
-
-            entry_id = f"backup-{now_ts}-{added}-{hashlib.sha1(rel.encode('utf-8')).hexdigest()[:10]}"
-            uploads[entry_id] = {
-                "user": {
-                    "id": "system-backup",
-                    "username": "System Backup",
-                    "avatar": None,
-                },
-                "filename": fpath.name,
-                "path": rel,
-                "saved_to": rel,
-                "timestamp": now_ts,
-                "status": "pending",
-                "is_backup": True,
-                "backup_note": "Recovered by hourly backup scan (missing upload log entry).",
-            }
-            existing_saved_to.add(rel)
-            added += 1
-
-        if added:
-            _save_upload_log(uploads)
-            log.warning("[BackupSync] Added %d recovered upload entries as System Backup", added)
+    missing_count = max(scanned_audio_files - len(existing_saved_to), 0)
+    log.info(
+        "[BackupSync] Scan summary: scanned_audio=%d, log_entries=%d, unique_saved_to=%d, recovered=%d, unresolved_missing=%d, duration=%.2fs",
+        scanned_audio_files,
+        log_entry_count,
+        len(existing_saved_to),
+        added,
+        missing_count,
+        time.time() - started_at,
+    )
 
     return added
+
+def _trigger_backup_sync_async(reason: str = "manual"):
+    with _upload_log_lock:
+        if _backup_sync_state["running"]:
+            log.info("[BackupSync] Skip trigger (%s): previous run still active", reason)
+            return
+        _backup_sync_state["running"] = True
+        _backup_sync_state["last_started"] = int(time.time())
+
+    def _run():
+        try:
+            recovered = _sync_recorded_backups()
+            log.info("[BackupSync] Async run complete (%s), recovered=%d", reason, recovered)
+        except Exception as e:
+            log.warning("[BackupSync] Async run failed (%s): %s", reason, e)
+        finally:
+            with _upload_log_lock:
+                _backup_sync_state["running"] = False
+
+    threading.Thread(target=_run, daemon=True).start()
 
 def _launch_backup_watcher():
     if _backup_state["started"]:
         return
     _backup_state["started"] = True
+    log.info("[BackupSync] Starting hourly backup watcher (interval=3600s)")
+
+    _trigger_backup_sync_async(reason="startup")
 
     def backup_loop():
         while True:
             try:
-                _sync_recorded_backups()
+                _trigger_backup_sync_async(reason="hourly")
             except Exception as e:
                 log.warning("[BackupSync] Error: %s", e)
             time.sleep(3600)
