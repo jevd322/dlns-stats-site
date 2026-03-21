@@ -2,6 +2,7 @@
 from __future__ import annotations
 import os, mimetypes, time, random, subprocess, hashlib, logging, json, threading, shutil, io, zipfile, sqlite3
 from pathlib import Path
+from urllib.parse import quote
 from flask import (
     Blueprint, jsonify, send_file, abort, render_template,
     Response, stream_with_context, request, current_app
@@ -644,6 +645,54 @@ def is_owner():
     uid = str(user.get("id") if isinstance(user, dict) else getattr(user, "id", None))
     return uid in ADMIN_USER_IDS
 
+def _current_user_id(user=None) -> str:
+    if user is None:
+        user = get_current_user()
+    if not user:
+        return ""
+    uid = user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+    return str(uid) if uid is not None else ""
+
+def _is_owner_user(user=None) -> bool:
+    uid = _current_user_id(user)
+    return bool(uid and uid in ADMIN_USER_IDS)
+
+def _normalize_relpath(relpath: str) -> str:
+    return str(relpath or "").replace("\\", "/").lstrip("/").lower()
+
+def _entry_uploader_id(entry: dict) -> str:
+    if not isinstance(entry, dict):
+        return ""
+    user = entry.get("user") if isinstance(entry.get("user"), dict) else {}
+    uid = user.get("id")
+    return str(uid) if uid is not None else ""
+
+def _build_upload_index(uploads: dict) -> dict:
+    by_rel = {}
+    for entry in (uploads or {}).values():
+        if not isinstance(entry, dict):
+            continue
+        rel = _normalize_relpath(entry.get("saved_to") or entry.get("path") or "")
+        if rel:
+            by_rel[rel] = entry
+    return by_rel
+
+def _can_preview_entry(entry, current_user_id: str, is_admin: bool) -> bool:
+    if is_admin:
+        return True
+    if not isinstance(entry, dict):
+        return False
+    status = str(entry.get("status") or "pending").lower()
+    if status == "accepted":
+        return True
+    if status == "pending":
+        return bool(current_user_id and current_user_id == _entry_uploader_id(entry))
+    return False
+
+def _preview_url_for(relpath: str) -> str:
+    rel = _normalize_relpath(relpath)
+    return f"/sounds/recorded/{quote(rel, safe='/')}"
+
 @wavebox_bp.post("/api/upload")
 def api_upload():
     """
@@ -711,14 +760,14 @@ def api_upload():
 @wavebox_bp.get("/recorded/<path:relpath>")
 def recorded_media(relpath):
     """
-    Serve uploaded recordings for review (admin-only).
+    Serve uploaded recordings for preview.
     Files are stored in data/recorded/.
     """
-    # Require admin / owner access
-    if not is_owner():
-        abort(403)
+    current_user = get_current_user()
+    current_user_id = _current_user_id(current_user)
+    admin_access = _is_owner_user(current_user)
 
-    relpath = relpath.replace("\\", "/")
+    relpath = _normalize_relpath(relpath)
     p = (RECORDED_ROOT / relpath).resolve()
 
     # Prevent directory traversal
@@ -727,6 +776,19 @@ def recorded_media(relpath):
 
     if not p.exists() or not is_allowed_file(p):
         abort(404)
+
+    uploads = _load_upload_log()
+    upload_index = _build_upload_index(uploads)
+    entry = upload_index.get(relpath)
+
+    # Accepted recordings are previewable by everyone.
+    # Pending recordings are previewable by admins and the original uploader only.
+    if entry:
+        if not _can_preview_entry(entry, current_user_id, admin_access):
+            abort(403)
+    elif not admin_access:
+        # Untracked files remain admin-only.
+        abort(403)
 
     mime = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
     return send_file(p, mimetype=mime, conditional=True)
@@ -861,29 +923,43 @@ def api_exists():
         return jsonify({"ok": False, "error": "Invalid path"}), 400
 
     uploads = _load_upload_log()
+    upload_index = _build_upload_index(uploads)
+    current_user = get_current_user()
+    current_user_id = _current_user_id(current_user)
+    admin_access = _is_owner_user(current_user)
 
     # ✅ File physically exists in data/recorded/
     if recorded_path.exists():
         # Try to enrich from uploads log
-        for entry in uploads.values():
-            if str(entry.get("saved_to", "")).lower() == rel:
-                return jsonify({
-                    "ok": True,
-                    "exists": True,
-                    "status": entry.get("status", "pending"),
-                    "accepted_at": entry.get("accepted_at"),
-                    "uploader": entry.get("user"),
-                    "timestamp": entry.get("timestamp"),
-                    "path": rel
-                })
+        entry = upload_index.get(rel)
+        if entry:
+            can_preview = _can_preview_entry(entry, current_user_id, admin_access)
+            payload = {
+                "ok": True,
+                "exists": True,
+                "status": entry.get("status", "pending"),
+                "accepted_at": entry.get("accepted_at"),
+                "uploader": entry.get("user"),
+                "timestamp": entry.get("timestamp"),
+                "path": rel,
+                "can_preview": can_preview,
+            }
+            if can_preview:
+                payload["preview_url"] = _preview_url_for(rel)
+            return jsonify(payload)
 
         # File exists but not logged — treat as pending
-        return jsonify({
+        can_preview = admin_access
+        payload = {
             "ok": True,
             "exists": True,
             "status": "pending",
-            "path": rel
-        })
+            "path": rel,
+            "can_preview": can_preview,
+        }
+        if can_preview:
+            payload["preview_url"] = _preview_url_for(rel)
+        return jsonify(payload)
 
     # ❌ File not in data/recorded
     return jsonify({
@@ -1081,6 +1157,10 @@ def api_all_statuses():
     Returns: { "path/to/file.mp3": { "status": "pending|accepted|missing", ... }, ... }
     """
     uploads = _load_upload_log()
+    upload_index = _build_upload_index(uploads)
+    current_user = get_current_user()
+    current_user_id = _current_user_id(current_user)
+    admin_access = _is_owner_user(current_user)
     result = {}
     
     # Map all recorded files
@@ -1091,19 +1171,31 @@ def api_all_statuses():
             
             rel = str(fpath.relative_to(RECORDED_ROOT)).replace("\\", "/").lower()
             
-            # Check if it's in the uploads log
-            for entry in uploads.values():
-                if str(entry.get("saved_to", "")).lower() == rel:
-                    result[rel] = {
-                        "status": entry.get("status", "pending"),
-                        "accepted_at": entry.get("accepted_at"),
-                        "uploader": entry.get("user"),
-                        "timestamp": entry.get("timestamp")
-                    }
-                    break
-            else:
-                # File exists but not logged
-                result[rel] = {"status": "pending"}
+            entry = upload_index.get(rel)
+            if entry:
+                status = str(entry.get("status") or "pending").lower()
+                visible = status == "accepted" or admin_access or (status == "pending" and current_user_id == _entry_uploader_id(entry))
+                if not visible:
+                    continue
+
+                can_preview = _can_preview_entry(entry, current_user_id, admin_access)
+                payload = {
+                    "status": status,
+                    "accepted_at": entry.get("accepted_at"),
+                    "uploader": entry.get("user"),
+                    "timestamp": entry.get("timestamp"),
+                    "can_preview": can_preview,
+                }
+                if can_preview:
+                    payload["preview_url"] = _preview_url_for(rel)
+                result[rel] = payload
+            elif admin_access:
+                # Untracked files are only visible to admins.
+                result[rel] = {
+                    "status": "pending",
+                    "can_preview": True,
+                    "preview_url": _preview_url_for(rel),
+                }
     
     return jsonify({"ok": True, "statuses": result})
 

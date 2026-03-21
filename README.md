@@ -1,246 +1,154 @@
-# DLNS Stats Website 🎮
+# DLNS Stats Site
 
-A comprehensive web application for tracking and analyzing Deadlock Night Shift (DLNS) game statistics. This project provides match data ingestion, player statistics, and a modern web interface for exploring game history.
+DLNS Stats Site is a Flask-based web app for Deadlock Night Shift match tracking, player analysis, and community tooling.
 
-## ✨ Features
+It includes:
+- Match ingestion and enrichment pipelines
+- Public web pages for matches, users, and stats
+- Internal and public JSON APIs
+- React-powered sections for sounds, ranker, and VO workflows
 
-### 🎯 Core Functionality
-- **Match Data Ingestion**: Automated processing of Deadlock match data via external APIs
-- **Player Statistics**: Comprehensive player performance tracking and analytics
-- **Match History**: Detailed match records with team composition and outcomes
-- **Hero Analytics**: Hero-specific statistics and performance metrics
-- **Real-time Updates**: Live data processing and caching for optimal performance
+## What This Project Does
 
-### 🌐 Web Interface
-- **Modern Responsive Design**: Clean, mobile-friendly interface using Pico CSS
-- **Advanced Search**: Find matches and players with intelligent suggestions
-- **Statistics Dashboard**: Comprehensive overview of game statistics and trends
-- **Match Details**: In-depth match analysis with player performance breakdowns
-- **Export Tools**: CSV/TSV export functionality for data analysis
+- Tracks and serves DLNS match and player data from SQLite
+- Resolves hero names and caches external lookups
+- Provides pages for:
+  - Latest matches
+  - Match details
+  - User profiles and match history
+  - Aggregated statistics
+- Exposes API docs through OpenAPI at /api/docs
+- Hosts additional tools:
+  - /sounds
+  - /dlns
+  - /rank
+  - /vo
 
-### 🔧 Technical Features
-- **RESTful API**: Comprehensive API endpoints for accessing all data
-- **OpenAPI/Swagger Documentation**: Interactive API documentation with try-it-out functionality
-- **Intelligent Caching**: Multi-layer caching system for optimal performance
-- **SEO Optimized**: Proper meta tags, sitemaps, and Open Graph support
-- **Compression**: Built-in response compression (Brotli/Gzip)
-- **Environment Configuration**: Flexible configuration via environment variables
+## Tech Stack
 
-## 🚀 Quick Start
+- Backend: Python + Flask
+- Database: SQLite (default: data/dlns.sqlite3)
+- Frontend: Server-rendered templates + React bundles in static/react-app
+- Caching/Compression: Flask-Caching + Flask-Compress
 
-### Prerequisites
-- Python 3.8+
-- Steam API Key (for player name resolution)
-- Internet connection (for fetching match data)
+## Quick Start
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd dlns-stats-site
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Steam API key and other configuration
-   ```
-
-4. **Initialize the database**
-   ```bash
-   python main.py -matchfile matches.txt
-   ```
-
-5. **Initialize the Hero Cache**
-   ```bash
-   python main.py -herofetch true -herostart 0 -herostart 100
-   ```
-
-6. **Start the web server**
-   ```bash
-   python main_web.py
-   ```
-
-Visit `http://localhost:5000` to access the application.
-
-## 📊 Data Processing
-
-### Match Data Ingestion
-The system processes match data from external APIs:
+### 1) Install dependencies
 
 ```bash
-# Process matches from a file
-python main.py -matchfile matches.txt
-
-# Refresh user cache only
-python main.py -userfetch true
+pip install -r requirements.txt
 ```
 
-### Data Sources
-- **Deadlock API**: Match metadata and game statistics
-- **Steam API**: Player names and profile information
-- **Hero Data**: Character information and assets
+Optional (for rebuilding React bundles):
 
-## 🛠️ Configuration
-
-### Environment Variables
 ```bash
-# Required
-STEAM_API_KEY=your_steam_api_key_here
+cd frontend
+npm install
+```
 
-# Database
+### 2) Configure environment
+
+Create a .env file (or set env vars in your host) and configure at minimum:
+
+```bash
+SECRET_KEY=change-me
+BASE_URL=http://localhost:5050
 DB_PATH=./data/dlns.sqlite3
+STEAM_API_KEY=your_steam_api_key
+```
 
-# API Configuration
-API_LATEST_LIMIT=50
-HERO_API_VERSION=5902
+Useful optional vars:
 
-# Caching
+```bash
+API_LATEST_LIMIT=20
 CACHE_TYPE=SimpleCache
 CACHE_DEFAULT_TIMEOUT=60
-
-# External Links
-YOUTUBE_URL=https://www.youtube.com/@your_channel
-TWITCH_URL=https://www.twitch.tv/your_channel
-KOFI_URL=https://ko-fi.com/your_username
+COMPRESS_LEVEL=6
+COMPRESS_BR_LEVEL=5
+FRONTEND_URL=
+YOUTUBE_URL=
+TWITCH_URL=
+KOFI_URL=
+PATREON_URL=
 ```
 
-## 📁 Project Structure
+### 3) Ingest data
 
-```
-├── main.py              # Data ingestion and processing
-├── main_web.py          # Web server and main application
-├── debug_web.py         # Used as a way for people to put in the main_web.py code, in a "debug" format. Will require copy pasting.
-├── db_api.py           # Database API endpoints
-├── stats_bp.py         # Statistics blueprint
-├── expo.py             # Export functionality
-├── heroes.py           # Hero name resolution
-├── sitemap.py          # SEO sitemap generation
-├── cache.py            # Caching configuration
-├── requirements.txt    # Python dependencies
-├── .env.example       # Environment configuration template
-├── data/              # Database and cache files
-│   ├── dlns.sqlite3   # Main database
-│   ├── hero_names.json # Hero name cache
-│   └── user_cache.json # Player name cache
-├── static/            # Static assets (CSS, JS, images)
-├── templates/         # HTML templates
-└── matches.txt        # Match IDs for processing
+```bash
+python main.py -matchfile matches.txt
 ```
 
-## 🔌 API Documentation
+### 4) Run the web app
 
-### 📖 Interactive API Documentation
-The DLNS Stats API includes comprehensive OpenAPI/Swagger documentation:
-- **Documentation Interface**: Visit `/api/docs` for interactive API documentation
-- **OpenAPI Specification**: Access the raw OpenAPI spec at `/api/openapi.json`
-- **Try It Out**: Test endpoints directly from the documentation interface
+```bash
+python main_web.py
+```
 
-### 🎯 Core API Endpoints
+Default local URL:
 
-#### Match Data
-- `GET /db/matches/latest` - Latest matches (configurable limit)
-- `GET /db/matches/latest/paged` - Paginated match list with filtering
-- `GET /db/matches/<id>/players` - Match player details
-- `GET /db/matches/<match_id>/users/<account_id>` - Specific player stats from match
+http://localhost:5050
 
-#### Player Data
-- `GET /db/users/<account_id>` - Basic user information
-- `GET /db/users/<account_id>/stats` - Aggregated player statistics
-- `GET /db/users/<account_id>/matches` - Complete player match history
-- `GET /db/users/<account_id>/matches/paged` - Paginated player matches with filtering
+## Frontend Build (React)
 
-#### Search & Utilities
-- `GET /db/search/suggest?q=<query>` - Search suggestions for matches and players
-- `GET /db/heroes` - Complete hero ID to name mappings
-- `GET /api/community` - Community links and information
-- `GET /community.json` - Cached community information with ETags
+The React app in frontend outputs built files into static/react-app.
 
-#### OneLane Integration
-- `GET /onelane/api/check` - Version check for OneLane mod
+```bash
+cd frontend
+npm run build
+```
 
-#### SEO & Utilities
-- `GET /sitemap.xml` - SEO sitemap
-- `GET /robots.txt` - Robots.txt file
+Use this after changing files in frontend/src.
 
-### 🔧 API Features
-- **Comprehensive Filtering**: Most endpoints support filtering by team, result, game mode, etc.
-- **Pagination**: Large datasets are paginated with configurable page sizes
-- **Caching**: Built-in caching (20-300 seconds) for optimal performance
-- **Error Handling**: Consistent error responses with meaningful messages
-- **Content Negotiation**: JSON responses with proper content types
-- **Hero Enhancement**: Player data automatically includes hero names
+## Project Layout
 
-## 🎨 Features in Detail
+```text
+main.py                 Data ingestion/processing
+main_web.py             Flask app factory and route wiring
+blueprints/             Feature blueprints (db, auth, stats, sounds, rank, vo, etc.)
+templates/              Server-rendered HTML templates
+static/                 Static files and built React bundles
+frontend/               React source and Vite config
+data/                   SQLite database and runtime data files
+docs/                   Project docs (schema notes, etc.)
+```
 
-### Statistics Dashboard
-Comprehensive analytics including:
-- Total matches and players
-- Win/loss ratios
-- Hero performance metrics
-- Player damage and healing statistics
-- Accuracy and objective damage tracking
+## Main Routes
 
-### Export Tools
-Located at `/dlns/`:
-- Single match export
-- Batch processing for multiple matches
-- CSV and TSV formats
-- Real-time processing updates
+- / - latest matches
+- /search
+- /matches/<id>
+- /users/<account_id>
+- /stats/
+- /sounds/
+- /api/docs
+- /api/openapi.json
+- /sitemap.xml
+- /robots.txt
 
-### Search Functionality
-- Intelligent match ID suggestions
-- Player name autocomplete
-- Historical match lookup
-- Advanced filtering options
+## API Notes
 
-## 🗄️ Database Schema
+Core database APIs are under /db.
 
-The application uses SQLite with the following main tables:
-- **matches**: Game metadata and outcomes
-- **players**: Individual player performance data
-- **users**: Player profiles and aggregate statistics
+Examples:
+- GET /db/matches/latest
+- GET /db/matches/latest/paged
+- GET /db/matches/<id>/players
+- GET /db/users/<account_id>
+- GET /db/users/<account_id>/stats
 
-## 🚀 Deployment
+## SEO Endpoints
 
-### Production Considerations
-1. **Environment**: Set production environment variables
-2. **Database**: Consider PostgreSQL for larger datasets
-3. **Caching**: Redis/Memcached for distributed caching
-4. **Web Server**: Use Gunicorn + Nginx for production
-5. **SSL**: Enable HTTPS with proper certificates
+- /sitemap.xml is generated dynamically from current site and database content.
+- /robots.txt is generated dynamically and points crawlers to the sitemap.
+- Ensure BASE_URL is set correctly in production so canonical sitemap links are correct.
 
-## 🤝 Contributing
+## Deployment Notes
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- Run behind a reverse proxy in production
+- Set BASE_URL to public origin (for sitemap + metadata)
+- Keep SECRET_KEY private
+- Move to managed DB/caching layers if traffic grows
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **Deadlock Night Shift Community** - For the amazing games and community
-- **Deadlock API** - For providing match data access
-- **Steam API** - For player information
-- **Pico CSS** - For the beautiful, lightweight styling
-
-## 📞 Support
-
-- 🐛 **Issues**: Report bugs via GitHub Issues
-- 💬 **Community**: Join the DLNS community discussions
-- 📧 **Contact**: Reach out through the configured social links
-
----
-
-**Made with ❤️ for the Deadlock Night Shift community**
+MIT. See LICENSE.

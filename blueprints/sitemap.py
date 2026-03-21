@@ -1,21 +1,27 @@
 from __future__ import annotations
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from flask import Blueprint, Response, current_app, request
+from flask import Blueprint, Response, current_app, request, has_request_context
 from blueprints.db_api import get_ro_conn
+from typing import Optional
 
 sitemap_bp = Blueprint('sitemap', __name__)
 
 # Simple in-process cache
-_SITEMAP_XML_CACHE: str | None = None
-_SITEMAP_CACHE_AT: float | None = None
+_SITEMAP_XML_CACHE: Optional[str] = None
+_SITEMAP_CACHE_AT: Optional[float] = None
 _SITEMAP_TTL_SECS = 900  # 15 minutes
 
 def _now_ts() -> float:
     return datetime.now(timezone.utc).timestamp()
 
 def _base_url() -> str:
-    return current_app.config.get('BASE_URL', 'http://localhost:5000').rstrip('/')
+    configured = str(current_app.config.get('BASE_URL', '')).strip().rstrip('/')
+    if configured:
+        return configured
+    if has_request_context():
+        return request.url_root.rstrip('/')
+    return 'http://localhost:5050'
 
 def _safe_lastmod(val) -> str:
     # Accept ISO strings, or epoch (int/float), fallback to today
@@ -42,7 +48,7 @@ def _build_sitemap_xml() -> str:
     urlset = ET.Element('urlset')
     urlset.set('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9')
 
-    def add_url(loc: str, lastmod: str | None = None, changefreq: str = 'weekly', priority: str = '0.5'):
+    def add_url(loc: str, lastmod: Optional[str] = None, changefreq: str = 'weekly', priority: str = '0.5'):
         url = ET.SubElement(urlset, 'url')
         ET.SubElement(url, 'loc').text = loc
         if lastmod:
@@ -53,10 +59,20 @@ def _build_sitemap_xml() -> str:
     base = _base_url()
     today = datetime.now(timezone.utc).date().isoformat()
 
-    # Static pages
+    # Public static pages
     add_url(f'{base}/', today, 'daily', '1.0')
+    add_url(f'{base}/search', today, 'weekly', '0.7')
+    add_url(f'{base}/help', today, 'monthly', '0.5')
+    add_url(f'{base}/community', today, 'weekly', '0.6')
+    add_url(f'{base}/updates', today, 'weekly', '0.6')
     add_url(f'{base}/stats/', today, 'daily', '0.9')
     add_url(f'{base}/sounds/', today, 'monthly', '0.5')
+    add_url(f'{base}/dlns/', today, 'weekly', '0.6')
+
+    # Optional public tool pages
+    add_url(f'{base}/onelane/', today, 'weekly', '0.5')
+    add_url(f'{base}/gluten/', today, 'weekly', '0.5')
+    add_url(f'{base}/chat/', today, 'weekly', '0.5')
 
     # Dynamic content
     try:
@@ -65,17 +81,17 @@ def _build_sitemap_xml() -> str:
             try:
                 rows = conn.execute("""
                     SELECT match_id,
-                           COALESCE(start_time, created_at) AS dt
+                        COALESCE(start_time, created_at) AS dt
                     FROM matches
                     ORDER BY match_id DESC
-                    LIMIT 20000
+                    LIMIT 15000
                 """).fetchall()
                 for match_id, dt in rows:
                     add_url(f'{base}/matches/{match_id}', _safe_lastmod(dt), 'monthly', '0.6')
             except Exception as e:
                 current_app.logger.warning(f"sitemap: matches query failed: {e}")
 
-            # Users last activity (via matches only; players.created_at may not exist)
+            # Users last activity (via matches only)
             try:
                 rows = conn.execute("""
                     SELECT u.account_id,
@@ -87,7 +103,7 @@ def _build_sitemap_xml() -> str:
                     WHERE u.persona_name IS NOT NULL
                     GROUP BY u.account_id, u.persona_name
                     ORDER BY last_activity DESC NULLS LAST
-                    LIMIT 20000
+                    LIMIT 15000
                 """).fetchall()
             except Exception:
                 # SQLite doesn't support "NULLS LAST"; remove it if it fails
@@ -102,7 +118,7 @@ def _build_sitemap_xml() -> str:
                         WHERE u.persona_name IS NOT NULL
                         GROUP BY u.account_id, u.persona_name
                         ORDER BY last_activity DESC
-                        LIMIT 20000
+                        LIMIT 15000
                     """).fetchall()
                 except Exception as e:
                     current_app.logger.warning(f"sitemap: users query failed: {e}")
@@ -128,12 +144,16 @@ def sitemap():
 
         now = _now_ts()
         if _SITEMAP_XML_CACHE and _SITEMAP_CACHE_AT and (now - _SITEMAP_CACHE_AT) < _SITEMAP_TTL_SECS:
-            return Response(_SITEMAP_XML_CACHE, mimetype='application/xml')
+            response = Response(_SITEMAP_XML_CACHE, mimetype='application/xml')
+            response.headers['Cache-Control'] = 'public, max-age=900'
+            return response
 
         xml = _build_sitemap_xml()
         _SITEMAP_XML_CACHE = xml
         _SITEMAP_CACHE_AT = now
-        return Response(xml, mimetype='application/xml')
+        response = Response(xml, mimetype='application/xml')
+        response.headers['Cache-Control'] = 'public, max-age=900'
+        return response
     except Exception as e:
         current_app.logger.error(f"sitemap route error: {e}")
         # Minimal fallback
@@ -143,7 +163,9 @@ def sitemap():
   <url><loc>{base}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
   <url><loc>{base}/stats/</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
 </urlset>'''
-        return Response(minimal, mimetype='application/xml')
+        response = Response(minimal, mimetype='application/xml')
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        return response
 
 @sitemap_bp.route('/robots.txt')
 def robots():
@@ -151,14 +173,16 @@ def robots():
     robots_txt = f"""User-agent: *
 Allow: /
 
-# If your attempting to scrape PHP things, I reccomend not as this site contains no PHP. Talking to you, bots.
-# See https://developers.google.com/search/docs/advanced/robots/intro
-
+# Canonical sitemap location
 Sitemap: {base}/sitemap.xml
 
-# Disallow API and internal endpoints
+# Avoid internal API crawling; keep assets crawlable for rendering.
 Disallow: /db/
-Disallow: /api/
-Disallow: /static/
+
+# Optional: allow crawl of docs and app pages
+Allow: /api/docs
+Allow: /api/openapi.json
 """
-    return Response(robots_txt, mimetype='text/plain')
+    response = Response(robots_txt, mimetype='text/plain')
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response

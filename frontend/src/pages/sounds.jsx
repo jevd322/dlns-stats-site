@@ -737,9 +737,12 @@ export function SoundLibrary() {
   };
 
   const playFile = (path) => {
-    const url = normalize
+    const statusKey = String(path || '').toLowerCase().replace(/^\//, '');
+    const status = fileStatuses[statusKey];
+    const previewUrl = (status?.can_preview && status?.preview_url) ? status.preview_url : null;
+    const url = previewUrl || (normalize
       ? `/sounds/stream/${encodeURIComponent(path).replace(/%2F/g, '/')}?normalize=1`
-      : `/sounds/media/${encodeURIComponent(path).replace(/%2F/g, '/')}`;
+      : `/sounds/media/${encodeURIComponent(path).replace(/%2F/g, '/')}`);
     
     if (audioRef.current) {
       audioRef.current.src = url;
@@ -984,6 +987,21 @@ export function SoundLibrary() {
       setIsChecking(true);
       const res = await checkExists(path);
       setExistsStatus(res);
+      if (res?.ok && res?.exists && res?.path) {
+        const statusKey = String(res.path).toLowerCase().replace(/^\//, '');
+        setFileStatuses(prev => ({
+          ...prev,
+          [statusKey]: {
+            ...(prev[statusKey] || {}),
+            status: res.status || 'pending',
+            accepted_at: res.accepted_at,
+            uploader: res.uploader,
+            timestamp: res.timestamp,
+            can_preview: Boolean(res.can_preview),
+            preview_url: res.preview_url,
+          },
+        }));
+      }
       if (!res.ok) {
         showError(res.error || 'Failed to check status');
       }
@@ -1019,6 +1037,21 @@ export function SoundLibrary() {
       // Re-check to prevent duplicates
       const status = await checkExists(path);
       setExistsStatus(status);
+      if (status?.ok && status?.exists && status?.path) {
+        const statusKey = String(status.path).toLowerCase().replace(/^\//, '');
+        setFileStatuses(prev => ({
+          ...prev,
+          [statusKey]: {
+            ...(prev[statusKey] || {}),
+            status: status.status || 'pending',
+            accepted_at: status.accepted_at,
+            uploader: status.uploader,
+            timestamp: status.timestamp,
+            can_preview: Boolean(status.can_preview),
+            preview_url: status.preview_url,
+          },
+        }));
+      }
       if (status.ok && status.exists) {
         showError(`Already ${status.status || 'present'} at ${status.path}`);
         return;
@@ -1029,6 +1062,21 @@ export function SoundLibrary() {
       // Refresh status to pending
       const updated = await checkExists(path);
       setExistsStatus(updated);
+      if (updated?.ok && updated?.exists && updated?.path) {
+        const statusKey = String(updated.path).toLowerCase().replace(/^\//, '');
+        setFileStatuses(prev => ({
+          ...prev,
+          [statusKey]: {
+            ...(prev[statusKey] || {}),
+            status: updated.status || 'pending',
+            accepted_at: updated.accepted_at,
+            uploader: updated.uploader,
+            timestamp: updated.timestamp,
+            can_preview: Boolean(updated.can_preview),
+            preview_url: updated.preview_url,
+          },
+        }));
+      }
       // Clear uploaded file after successful submit
       setUploadedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
