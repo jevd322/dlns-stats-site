@@ -281,3 +281,26 @@ def get_heroes():
         _load_if_needed()
         # Return the heroes dict directly - this will be the flat ID->name mapping
         return jsonify(_names)
+
+
+@bp.get("/players")
+@cache.cached(timeout=60)  # Cache for 1 minute
+def get_players():
+    """Return list of all players from match data with their match count."""
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT 
+                p.account_id,
+                u.persona_name,
+                COUNT(DISTINCT p.match_id) as match_count
+            FROM players p
+            LEFT JOIN users u ON u.account_id = p.account_id
+            WHERE p.account_id IS NOT NULL
+            GROUP BY p.account_id, u.persona_name
+            ORDER BY match_count DESC, u.persona_name ASC
+            LIMIT 500
+            """
+        )
+        players = _rows_to_dicts(cur)
+        return jsonify({"players": players})

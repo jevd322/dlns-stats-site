@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import MatchList from './pages/MatchList';
 import MatchDetail from './pages/MatchDetail';
 import PlayerDetail from './pages/PlayerDetail';
+import PlayersList from './pages/PlayersList';
 import HeroDetail from './pages/HeroDetail';
 import HeroesList from './pages/HeroesList';
 import ItemsList from './pages/ItemsList';
@@ -19,6 +20,7 @@ function Navigation() {
   
   const navItems = [
     { path: '/', label: 'Matches' },
+    { path: '/players', label: 'Players' },
     { path: '/heroes', label: 'Heroes' },
     { path: '/stats', label: 'Stats' },
     { path: '/sounds', label: 'Sounds' },
@@ -60,8 +62,9 @@ function App() {
         
         <main className="w-full max-w-7xl mx-auto flex-1 py-8">
           <Routes>
-            <Route path="/matchlist" element={<MatchList />} />
+            <Route path="/" element={<MatchList />} />
             <Route path="/match/:matchId" element={<MatchDetail />} />
+            <Route path="/players" element={<PlayersList />} />
             <Route path="/player/:accountId" element={<PlayerDetail />} />
             <Route path="/heroes" element={<HeroesList />} />
             <Route path="/hero/:heroId" element={<HeroDetail />} />

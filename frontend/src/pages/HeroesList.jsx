@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import heroNamesData from '../../../data/hero_names.json';
 
 function HeroesList() {
   const [heroes, setHeroes] = useState({});
@@ -13,13 +14,9 @@ function HeroesList() {
   const fetchHeroes = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/db/heroes');
-      if (response.ok) {
-        const data = await response.json();
-        setHeroes(data);
-      }
+      setHeroes(heroNamesData.heroes);
     } catch (err) {
-      console.error('Failed to fetch heroes:', err);
+      console.error('Failed to load heroes:', err);
     } finally {
       setLoading(false);
     }
@@ -33,15 +30,19 @@ function HeroesList() {
     );
   }
 
-  // Convert heroes object to array and filter by search term
-  const heroesArray = Object.entries(heroes).map(([id, name]) => ({ id, name }));
+  // Convert heroes object to array and filter by search term and released status
+  const heroesArray = Object.entries(heroes)
+    .map(([id, data]) => ({ id, name: data.name, released: data.released }))
+    .filter(hero => hero.released) // Only show released heroes
+    .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically by name
+  
   const filteredHeroes = heroesArray.filter(hero =>
     hero.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="w-full p-8">
-      <h1 className="text-3xl font-bold mb-6">Heroes</h1>
+      <h1 className="text-white text-3xl font-bold mb-6">Heroes</h1>
 
       {/* Search Bar */}
       <div className="mb-6">
@@ -50,7 +51,7 @@ function HeroesList() {
           placeholder="Search heroes..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full md:w-96 px-4 py-2 text-gray-400 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -67,20 +68,24 @@ function HeroesList() {
           <Link
             key={hero.id}
             to={`/hero/${hero.id}`}
-            className="bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+            className="shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
           >
-            {/* Portrait Placeholder */}
-            <div className="h-24 bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center">
-              <div className="text-white text-4xl font-bold opacity-50">
-                {hero.name.charAt(0)}
-              </div>
+            {/* Hero Portrait */}
+            <div className="relative overflow-hidden">
+              <img 
+                src={`/static/images/vertical/${hero.name.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`}
+                alt={hero.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.classList.add('flex', 'items-center', 'justify-center');
+                  e.target.parentElement.innerHTML = `<div class="text-white text-4xl font-bold opacity-50">${hero.name.charAt(0)}</div>`;
+                }}
+              />
+              <h3 className="absolute bottom-0 left-0 right-0 text-md font-bold text-center text-white py-2" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000'}}>{hero.name}</h3>
+
             </div>
             
-            {/* Hero Name */}
-            <div className="p-4">
-              <h3 className="text-lg font-bold text-center">{hero.name}</h3>
-              <p className="text-sm text-gray-500 text-center">ID: {hero.id}</p>
-            </div>
           </Link>
         ))}
       </div>

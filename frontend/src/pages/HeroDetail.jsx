@@ -33,7 +33,8 @@ function HeroDetail() {
     );
   }
 
-  const heroName = heroes[heroId] || 'Unknown Hero';
+  const hero = heroes[heroId];
+  const heroName = hero?.name || hero || 'Unknown Hero';
 
   return (
     <div className="w-full p-8">
@@ -43,8 +44,7 @@ function HeroDetail() {
 
       {/* Hero Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{heroName}</h1>
-        <p className="text-gray-600">Hero ID: {heroId}</p>
+        <h1 className="text-white text-4xl font-bold mb-2">{heroName}</h1>
       </div>
 
       {/* Hero Stats Placeholder */}
