@@ -6,6 +6,7 @@ import PlayerDetail from './pages/PlayerDetail';
 import PlayersList from './pages/PlayersList';
 import HeroDetail from './pages/HeroDetail';
 import HeroesList from './pages/HeroesList';
+import PlayerHeroDetail from './pages/PlayerHeroDetail';
 import ItemsList from './pages/ItemsList';
 import Stats from './pages/Stats';
 import { SoundLibrary } from './pages/sounds.jsx';
@@ -69,6 +70,7 @@ function App() {
             <Route path="/player/:accountId" element={<PlayerDetail />} />
             <Route path="/heroes" element={<HeroesList />} />
             <Route path="/hero/:heroId" element={<HeroDetail />} />
+            <Route path="/player/:accountId/hero/:heroId" element={<PlayerHeroDetail />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/sounds" element={<SoundLibrary />} />
             <Route path="/sounds-dev" element={<SoundsDev />} />
