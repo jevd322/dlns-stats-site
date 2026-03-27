@@ -1,9 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { RankApp } from './rank.jsx';
+import App from '../App.jsx';
+import '../App.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <RankApp />
+    <App />
   </React.StrictMode>,
 );

@@ -1,1 +1,1 @@
-import{c as e,j as t,R as r}from"./chunks/api.js";import{S as o}from"./chunks/main.js";e.createRoot(document.getElementById("root")).render(t.jsx(r.StrictMode,{children:t.jsx(o,{})}));
+import{c as r,j as t,R as e}from"./chunks/api.js";import"./chunks/main.js";import{S as o}from"./chunks/App.js";r.createRoot(document.getElementById("root")).render(t.jsx(e.StrictMode,{children:t.jsx(o,{})}));
