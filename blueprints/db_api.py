@@ -64,35 +64,82 @@ def latest_matches_paged():  # type: ignore
     team = request.args.get("team") or ""
     gm = request.args.get("game_mode") or ""
     mm = request.args.get("match_mode") or ""
+    hero_filter = request.args.get("hero") or ""
+    player_filter = request.args.get("player") or ""
 
     offset = (page - 1) * per_page
     params = []
-    sql_base = (
-        "FROM matches"
-    )
+    sql_base = "FROM matches m"
+    joins = ""
     conds = []
     if team in ("0", "1"):
-        conds.append("winning_team = ?")
+        conds.append("m.winning_team = ?")
         params.append(int(team))
     if gm:
-        conds.append("game_mode = ?")
+        conds.append("m.game_mode = ?")
         params.append(gm)
     if mm:
-        conds.append("match_mode = ?")
+        conds.append("m.match_mode = ?")
         params.append(mm)
+
+    # Hero filter: resolve name to hero_ids, then JOIN players table
+    if hero_filter:
+        from heroes import get_all_hero_names
+        hero_ids = []
+        for hid, hname in get_all_hero_names().items():
+            if hero_filter.lower() in hname.lower():
+                hero_ids.append(int(hid))
+        if hero_ids:
+            placeholders = ",".join("?" * len(hero_ids))
+            joins += f" JOIN players hp ON hp.match_id = m.match_id AND hp.hero_id IN ({placeholders})"
+            params = list(hero_ids) + params
+        else:
+            # No matching hero — return empty
+            return jsonify({
+                "matches": [], "page": page, "per_page": per_page,
+                "total": 0, "total_pages": 0
+            })
+
+    # Player filter: JOIN users table
+    if player_filter:
+        joins += " JOIN players pp ON pp.match_id = m.match_id JOIN users pu ON pu.account_id = pp.account_id AND pu.persona_name LIKE ?"
+        params.append(f"%{player_filter}%")
+
     where = (" WHERE " + " AND ".join(conds)) if conds else ""
     with get_ro_conn() as conn:
         # total count for this filter
-        ccur = conn.execute(f"SELECT COUNT(1) {sql_base}{where}", tuple(params))
+        ccur = conn.execute(f"SELECT COUNT(DISTINCT m.match_id) {sql_base}{joins}{where}", tuple(params))
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            f"SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, start_time, created_at {sql_base}{where} "
-            f"ORDER BY COALESCE(start_time, created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
+            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.start_time, m.created_at {sql_base}{joins}{where} "
+            f"ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
-        data = _rows_to_dicts(cur)
+        matches = _rows_to_dicts(cur)
+
+        # Fetch players for each match to include hero data
+        match_ids = [m["match_id"] for m in matches]
+        if match_ids:
+            placeholders = ",".join("?" * len(match_ids))
+            pcur = conn.execute(
+                f"SELECT p.match_id, p.team, p.hero_id, u.persona_name, p.account_id "
+                f"FROM players p LEFT JOIN users u ON u.account_id = p.account_id "
+                f"WHERE p.match_id IN ({placeholders}) ORDER BY p.team, p.player_slot",
+                tuple(match_ids)
+            )
+            players_by_match = {}
+            for row in _rows_to_dicts(pcur):
+                mid = row["match_id"]
+                if mid not in players_by_match:
+                    players_by_match[mid] = []
+                if row.get("hero_id"):
+                    row["hero_name"] = get_hero_name(row["hero_id"])
+                players_by_match[mid].append(row)
+            for m in matches:
+                m["players"] = players_by_match.get(m["match_id"], [])
+
         return jsonify({
-            "matches": data,
+            "matches": matches,
             "page": page,
             "per_page": per_page,
             "total": total,
