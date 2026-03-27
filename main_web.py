@@ -34,6 +34,7 @@ from blueprints.filehub import filehub_bp
 from blueprints.vdata import vdata_editor_bp
 from blueprints.submission_bp import submission_bp
 from blueprints.ranker import ranker_bp
+from blueprints.react_stats import react_stats_bp
 
 
 def create_app() -> Flask:
@@ -131,6 +132,7 @@ def create_app() -> Flask:
     app.register_blueprint(vdata_editor_bp)
     app.register_blueprint(submission_bp)
     app.register_blueprint(ranker_bp)
+    app.register_blueprint(react_stats_bp)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:

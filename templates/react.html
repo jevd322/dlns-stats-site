@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wavebox • Audio Library</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='react-app/assets/App.css') }}">
   <style>
     * {
       margin: 0;
@@ -74,6 +75,8 @@
     <script type="module" src="{{ url_for('static', filename='react-app/matchlist.js') }}"></script>
   {% elif page == "match_detail" %}
     <script type="module" src="{{ url_for('static', filename='react-app/match_detail.js') }}"></script>
+  {% elif page == "players" %}
+    <script type="module" src="{{ url_for('static', filename='react-app/players.js') }}"></script>
   {% elif page == "player_detail" %}
     <script type="module" src="{{ url_for('static', filename='react-app/player_detail.js') }}"></script>
   {% elif page == "heroes" %}
