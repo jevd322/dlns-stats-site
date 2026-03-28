@@ -330,6 +330,48 @@ def get_heroes():
         return jsonify(_names)
 
 
+@bp.get("/heroes/<int:hero_id>/stats")
+@cache.cached(timeout=120)
+def hero_stats(hero_id: int):
+    """Return aggregated stats for a specific hero across all matches."""
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT
+                COUNT(*) as games_played,
+                SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) as wins,
+                ROUND(AVG(kills), 2) as avg_kills,
+                ROUND(AVG(deaths), 2) as avg_deaths,
+                ROUND(AVG(assists), 2) as avg_assists,
+                ROUND(AVG(CAST(kills + assists AS REAL) / MAX(deaths, 1)), 2) as avg_kda,
+                ROUND(AVG(player_damage), 0) as avg_damage,
+                ROUND(AVG(obj_damage), 0) as avg_obj_damage,
+                ROUND(AVG(player_healing), 0) as avg_healing,
+                ROUND(AVG(net_worth), 0) as avg_souls,
+                MAX(kills) as max_kills,
+                MAX(player_damage) as max_damage,
+                MAX(player_healing) as max_healing,
+                MAX(obj_damage) as max_obj_damage
+            FROM players
+            WHERE hero_id = ?
+            """,
+            (hero_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"stats": None})
+        cols = [c[0] for c in cur.description]
+        stats = dict(zip(cols, row))
+
+        # Pick rate = hero games / total match-player rows
+        total_cur = conn.execute("SELECT COUNT(*) FROM players WHERE account_id IS NOT NULL")
+        total = total_cur.fetchone()[0]
+        stats["pick_rate"] = round(stats["games_played"] / total, 4) if total else 0
+        stats["win_rate"] = round(stats["wins"] / stats["games_played"], 4) if stats["games_played"] else 0
+
+        return jsonify({"stats": stats})
+
+
 @bp.get("/players")
 @cache.cached(timeout=60)  # Cache for 1 minute
 def get_players():

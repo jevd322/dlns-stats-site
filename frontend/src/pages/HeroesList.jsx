@@ -72,18 +72,20 @@ function HeroesList() {
           >
             {/* Hero Portrait */}
             <div className="relative overflow-hidden">
+              <img
+                src="/static/images/vertical/card_backer_psd.png"
+                alt=""
+                className="w-full h-full object-cover opacity-30"
+              />
               <img 
                 src={`/static/images/vertical/${hero.name.toLowerCase().replace(/\s+/g, '_')}_vertical_psd.png`}
                 alt={hero.name}
-                className="w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => {
                   e.target.style.display = 'none';
-                  e.target.parentElement.classList.add('flex', 'items-center', 'justify-center');
-                  e.target.parentElement.innerHTML = `<div class="text-white text-4xl font-bold opacity-50">${hero.name.charAt(0)}</div>`;
                 }}
               />
               <h3 className="absolute bottom-0 left-0 right-0 text-md font-bold text-center text-white py-2" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000'}}>{hero.name}</h3>
-
             </div>
             
           </Link>
