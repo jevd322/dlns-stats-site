@@ -72,8 +72,8 @@
     --color-danger-border: oklch(68.34% 0.2053 24.36 / 0.3);
 
     /* ── Team Colors ── */
-    --color-team-amber: oklch(76.28% 0.1627 69.37);
-    --color-team-sapphire: oklch(65.31% 0.1347 242.69);
+    --color-team-amber: oklch(0.8016 0.1705 73.27);
+    --color-team-sapphire: oklch(0.5542 0.246471 261.4449);
 
     /* ── Shadows ── */
     --shadow-panel: inset 0 1px 0 oklch(100% 0 none / 0.04);

@@ -51,6 +51,12 @@ def get_hero_name(hero_id: int | None) -> str:
         _load_if_needed()
         return _names.get(str(hero_id), f"Hero {hero_id}")
 
+def get_all_hero_names() -> Dict[str, str]:
+    """Return a copy of the full hero_id -> name mapping."""
+    with _lock:
+        _load_if_needed()
+        return dict(_names)
+
 # Load on import
 with _lock:
     _load_if_needed()
