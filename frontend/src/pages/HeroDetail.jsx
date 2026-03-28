@@ -5,6 +5,7 @@ function HeroDetail() {
   const { heroId } = useParams();
   const [heroes, setHeroes] = useState({});
   const [heroStats, setHeroStats] = useState(null);
+  const [heroMeta, setHeroMeta] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,9 +15,10 @@ function HeroDetail() {
   const fetchHeroes = async () => {
     try {
       setLoading(true);
-      const [heroesRes, statsRes] = await Promise.all([
+      const [heroesRes, statsRes, metaRes] = await Promise.all([
         fetch("/db/heroes"),
         fetch(`/db/heroes/${heroId}/stats`),
+        fetch(`/db/heroes/${heroId}/meta`),
       ]);
       if (heroesRes.ok) {
         const data = await heroesRes.json();
@@ -25,6 +27,10 @@ function HeroDetail() {
       if (statsRes.ok) {
         const data = await statsRes.json();
         setHeroStats(data.stats);
+      }
+      if (metaRes.ok) {
+        const data = await metaRes.json();
+        setHeroMeta(data);
       }
     } catch (err) {
       console.error("Failed to fetch heroes:", err);
@@ -60,13 +66,13 @@ function HeroDetail() {
           <h1 className="text-white text-4xl font-bold">{heroName}</h1>
           <div className="flex gap-2 mt-1">
             <span className="inline-flex items-center px-2 py-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[4deg]">
-              Placeholder
+              {heroMeta?.tagline?.[0] ?? "—"}
             </span>
             <span className="inline-flex items-center px-3 py-1 mt-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[-4deg]">
-              Placeholder
+              {heroMeta?.tagline?.[1] ?? "—"}
             </span>
             <span className="inline-flex items-center px-2 py-1 text-sm font-medium bg-slate-700 text-gray-200 rotate-[4deg]">
-              Placeholder
+              {heroMeta?.tagline?.[2] ?? "—"}
             </span>
           </div>
         </div>
@@ -76,69 +82,30 @@ function HeroDetail() {
       <div className="mb-8 col-span-4">
         <h2 className="text-white text-center text-2xl font-bold">Abilities</h2>
         <div className="flex justify-center gap-2">
-          {/* Ability 1 */}
-          <div className="shadow rounded-lg p-2 flex flex-col items-center text-center">
-            <div className="relative w-24 h-24">
-              <img
-                src="/static/images/abilities/ability_frame_standard.svg"
-                alt=""
-                className="w-full h-full"
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">
-                1
-              </span>
+          {(heroMeta?.abilities ?? Array(4).fill(null)).map((ability, i) => (
+            <div key={i} className="shadow rounded-lg p-2 flex flex-col items-center text-center">
+              <div className="relative w-24 h-24">
+                <img
+                  src="/static/images/abilities/ability_frame_standard.svg"
+                  alt=""
+                  className="absolute inset-0 w-full h-full"
+                />
+                {ability?.image ? (
+                  <img
+                    src={ability.image.startsWith("/") ? ability.image : `/${ability.image}`}
+                    alt={ability.name ?? ""}
+                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/5 h-2/5 object-contain opacity-75${ability.invert ? " invert" : ""}`}
+                  />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">
+                    {i + 1}
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-lg text-gray-200">{ability?.name ?? `Ability ${i + 1}`}</h3>
+              <p className="text-sm text-gray-400 mt-1">{ability?.description ?? ""}</p>
             </div>
-            <h3 className="font-bold text-lg text-gray-200">Ability 1</h3>
-            <p className="text-sm text-gray-400 mt-1">Placeholder</p>
-          </div>
-
-          {/* Ability 2 */}
-          <div className="shadow rounded-lg p-2 flex flex-col items-center text-center">
-            <div className="relative w-24 h-24">
-              <img
-                src="/static/images/abilities/ability_frame_standard.svg"
-                alt=""
-                className="w-full h-full"
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">
-                2
-              </span>
-            </div>
-            <h3 className="font-bold text-lg text-gray-200">Ability 2</h3>
-            <p className="text-sm text-gray-400 mt-1">Placeholder</p>
-          </div>
-
-          {/* Ability 3 */}
-          <div className="shadow rounded-lg p-2 flex flex-col items-center text-center">
-            <div className="relative w-24 h-24">
-              <img
-                src="/static/images/abilities/ability_frame_standard.svg"
-                alt=""
-                className="w-full h-full"
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">
-                3
-              </span>
-            </div>
-            <h3 className="font-bold text-lg text-gray-200">Ability 1</h3>
-            <p className="text-sm text-gray-400 mt-1">Placeholder</p>
-          </div>
-
-          {/* Ultimate Ability */}
-          <div className="shadow rounded-lg p-2 flex flex-col items-center text-center">
-            <div className="relative w-24 h-24">
-              <img
-                src="/static/images/abilities/ability_frame_standard.svg"
-                alt=""
-                className="w-full h-full"
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">
-                1
-              </span>
-            </div>
-            <h3 className="font-bold text-lg text-gray-200">Ability 1</h3>
-            <p className="text-sm text-gray-400 mt-1">Placeholder</p>
-          </div>
+          ))}
         </div>
       </div>
 

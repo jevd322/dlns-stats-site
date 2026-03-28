@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List
@@ -370,6 +371,24 @@ def hero_stats(hero_id: int):
         stats["win_rate"] = round(stats["wins"] / stats["games_played"], 4) if stats["games_played"] else 0
 
         return jsonify({"stats": stats})
+
+
+@bp.get("/heroes/<int:hero_id>/meta")
+@cache.cached(timeout=3600)
+def hero_meta(hero_id: int):
+    """Return curated metadata (tagline + abilities) for a specific hero."""
+    meta_path = Path(current_app.root_path) / "data" / "hero_meta.json"
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({"error": "meta data unavailable"}), 503
+
+    entry = data.get(str(hero_id))
+    if entry is None:
+        return jsonify({"error": "not found"}), 404
+
+    return jsonify(entry)
 
 
 @bp.get("/players")
