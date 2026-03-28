@@ -75,7 +75,32 @@ PATREON_URL=
 ### 3) Ingest data
 
 ```bash
-python main.py -matchfile matches.txt
+python main.py -matchfile matches.json
+```
+
+By default, the ingester only processes IDs not already marked as checked in `data/matches_status.json`.
+To re-run every ID from the JSON file, use:
+
+```bash
+python main.py -matchfile matches.json -recheckall true
+```
+
+The match ingester uses async workers with `asqlite` for DB writes.
+You can tune worker count (default `4`) with:
+
+```bash
+python main.py -matchfile matches.json -concurrency 6
+```
+
+The match input file is JSON and supports event grouping by week:
+
+```json
+{
+  "title": "Night Shift",
+  "weeks": [
+    { "week": 31, "match_ids": [70457488, 70471960] }
+  ]
+}
 ```
 
 ### 4) Run the web app
