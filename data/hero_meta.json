@@ -2,460 +2,404 @@
   "1": {
     "tagline": [
       "ARSONIST",
-      "Word",
-      "Here"
+      "EXPLOSIVE",
+      "BURN RUBBER"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Napalm",
+        "image": "static\\images\\abilities\\infernus\\inferno_molotov_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Flame Dash",
+        "image": "static\\images\\abilities\\infernus\\inferno_dash_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Afterburn",
+        "image": "static\\images\\abilities\\infernus\\inferno_deflect_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
+        "name": "Concussive Combustion",
+        "image": "static\\images\\abilities\\infernus\\inferno_bomb_psd.png",
+        "invert": false
       }
     ]
   },
   "2": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "HIGH VOLTAGE",
+      "MERCILESS",
+      "AREA DENIAL"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Lightning Ball",
+        "image": "static\\images\\abilities\\seven\\giga_ball_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Static Charge",
+        "image": "static\\images\\abilities\\seven\\giga_static_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Power Surge",
+        "image": "static\\images\\abilities\\seven\\giga_chain_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Storm Cloud",
+        "image": "static\\images\\abilities\\seven\\giga_storm_psd.png",
         "invert": true
       }
     ]
   },
   "3": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "SNIPER",
+      "SOARING",
+      "ONE SHOT KILL"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Stake",
+        "image": "static\\images\\abilities\\vindicta\\vindicta_stake_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Flight",
+        "image": "static\\images\\abilities\\vindicta\\vindicta_flight_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
+        "name": "Crow Familiar",
+        "image": "static\\images\\abilities\\vindicta\\hornet_crow_psd.png",
+        "invert": false
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Assasinate",
+        "image": "static\\images\\abilities\\vindicta\\vindicta_assasinate_psd.png",
         "invert": true
       }
     ]
   },
   "4": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "LIFESTEAL",
+      "SELF DAMAGE",
+      "FATALE"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Essence Bomb",
+        "image": "static\\images\\abilities\\lady_geist\\blood_bomb_psd.png",
+        "invert": false
+      },
+      {
+        "name": "Life Drain",
+        "image": "static\\images\\abilities\\lady_geist\\life_drain_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Malice",
+        "image": "static\\images\\abilities\\lady_geist\\geist_dagger_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
-      },
-      {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Soul Exchange",
+        "image": "static\\images\\abilities\\lady_geist\\blood_exchange_psd.png",
         "invert": true
       }
     ]
   },
   "6": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "TANK",
+      "BRAWLER",
+      "BULL-HEADED"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Siphon Life",
+        "image": "static\\images\\abilities\\abrams\\bull_drain_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Shoulder Charge",
+        "image": "static\\images\\abilities\\abrams\\bull_charge_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Infernal Resilience",
+        "image": "static\\images\\abilities\\abrams\\bull_beef_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Seismic Impact",
+        "image": "static\\images\\abilities\\abrams\\bull_jump_psd.png",
         "invert": true
       }
     ]
   },
   "7": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "DUELIST",
+      "ISOLATOR",
+      "TELEKINETIC"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Card Trick",
+        "image": "static\\images\\abilities\\wraith\\wraith_card_trick_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Project Mind",
+        "image": "static\\images\\abilities\\wraith\\wraith_teleport_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Full Auto",
+        "image": "static\\images\\abilities\\wraith\\wraith_aura_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Telekinesis",
+        "image": "static\\images\\abilities\\wraith\\wraith_lift_psd.png",
         "invert": true
       }
     ]
   },
   "8": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "INVENTOR",
+      "SUPPORT",
+      "DISRUPTION"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Mini Turret",
+        "image": "static\\images\\abilities\\mcginnis\\engineer_turret_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Medicinal Specter",
+        "image": "static\\images\\abilities\\mcginnis\\engineer_resupply_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Spectral Wall",
+        "image": "static\\images\\abilities\\mcginnis\\engineer_fissure_2_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Heavy Barrage",
+        "image": "static\\images\\abilities\\mcginnis\\engineer_rockets_psd.png",
         "invert": true
       }
     ]
   },
   "10": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "CALCULATED",
+      "DISRUPTOR",
+      "TACTICIAN"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Pulse Grenade",
+        "image": "static\\images\\abilities\\paradox\\chrono_time_bomb_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Time Wall",
+        "image": "static\\images\\abilities\\paradox\\chrono_time_wall_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Kinetic Carbine",
+        "image": "static\\images\\abilities\\paradox\\duo_attack_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Paradoxical Swap",
+        "image": "static\\images\\abilities\\paradox\\chrono_swap_psd.png",
         "invert": true
       }
     ]
   },
   "11": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "TEAMPLAY",
+      "INITIATOR",
+      "CLUTCH"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Kinetic Pulse",
+        "image": "static\\images\\abilities\\dynamo\\sumo_stomp_psd.png",
+        "invert": false
+      },
+      {
+        "name": "Quantum Entanglement",
+        "image": "static\\images\\abilities\\dynamo\\sumo_quantum_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Rejuvenating Aurora",
+        "image": "static\\images\\abilities\\dynamo\\sumo_pork_bun_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
-      },
-      {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Singularity",
+        "image": "static\\images\\abilities\\dynamo\\sumo_vacuum_psd.png",
         "invert": true
       }
     ]
   },
   "12": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "PROTECTOR",
+      "EXPLORER",
+      "ICE COLD"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Frost Grenade",
+        "image": "/static/images/abilities/kelvin/freezing_grenade_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Ice Path",
+        "image": "/static/images/abilities/kelvin/ice_path_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Arctic Beam",
+        "image": "/static/images/abilities/kelvin/ice_beam_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Frozen Shelter",
+        "image": "/static/images/abilities/kelvin/frozen_shelter_psd.png",
         "invert": true
       }
     ]
   },
   "13": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "ASSASSIN",
+      "STEALTHY",
+      "LETHAL"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Sleep Dagger",
+        "image": "static\\images\\abilities\\haze\\haze_sleep_dagger_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Smoke Bomb",
+        "image": "static\\images\\abilities\\haze\\haze_smoke_bomb_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Fixation",
+        "image": "static\\images\\abilities\\haze\\haze_fixation_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Bullet Dance",
+        "image": "static\\images\\abilities\\haze\\haze_bullet_flurry_psd.png",
         "invert": true
       }
     ]
   },
   "14": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "CRACKSHOT",
+      "EXPLOSIVE",
+      "APPREHENDER"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Powder Keg",
+        "image": "/static/images/abilities/holliday/holliday_powder_keg_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Bounce Pad",
+        "image": "/static/images/abilities/holliday/holliday_bounce_pad_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Crackshot",
+        "image": "/static/images/abilities/holliday/holliday_crackshot_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Spirit Lasso",
+        "image": "/static/images/abilities/holliday/holliday_spirit_lasso_psd.png",
         "invert": true
       }
     ]
   },
   "15": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "HOOK",
+      "BOMB",
+      "PUNCH"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Exploding Uppercut",
+        "image": "static\\images\\abilities\\bebop\\bebop_uppercut_psd.png",
+        "invert": false
+      },
+      {
+        "name": "Sticky Bomb",
+        "image": "static\\images\\abilities\\bebop\\bebop_sticky_bomb_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Grapple Arm",
+        "image": "static\\images\\abilities\\bebop\\bebop_hook_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
-      },
-      {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
+        "name": "Hyper Beam",
+        "image": "static\\images\\abilities\\bebop\\bebop_hyper_beam_psd.png",
+        "invert": false
       }
     ]
   },
   "16": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "TRICKSY",
+      "SLIPPERY",
+      "BURST DAMAGE"
     ],
     "abilities": [
       {
         "name": "Ability 1",
-        "description": "Description placeholder.",
         "image": "",
         "invert": true
       },
       {
         "name": "Ability 2",
-        "description": "Description placeholder.",
         "image": "",
         "invert": true
       },
       {
         "name": "Ability 3",
-        "description": "Description placeholder.",
         "image": "",
         "invert": true
       },
       {
         "name": "Ultimate",
-        "description": "Description placeholder.",
         "image": "",
         "invert": true
       }
@@ -470,785 +414,689 @@
     "abilities": [
       {
         "name": "Charged Shot",
-        "description": "Description placeholder.",
         "image": "/static/images/abilities/grey_talon/archer_charged_shot_psd.png",
         "invert": true
       },
       {
         "name": "Rain of Arrows",
-        "description": "Description placeholder.",
         "image": "/static/images/abilities/grey_talon/archer_guided_arrow_psd.png",
         "invert": true
       },
       {
         "name": "Spirit Snare",
-        "description": "Description placeholder.",
         "image": "/static/images/abilities/grey_talon/archer_power_jump_psd.png",
         "invert": true
       },
       {
         "name": "Guided Owl",
-        "description": "Description placeholder.",
-        "image": "/static/images/abilities/grey_talon/archer_ultimate_psd.png",
+        "image": "static\\images\\abilities\\grey_talon\\archer_guided_owl_psd.png",
         "invert": true
       }
     ]
   },
   "18": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "TAG-TEAM",
+      "INITIATOR",
+      "BURROWER"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Scorn",
+        "image": "static\\images\\abilities\\mo_and_krill\\grappler_regen_psd.png",
+        "invert": false
+      },
+      {
+        "name": "Burrow",
+        "image": "static\\images\\abilities\\mo_and_krill\\grappler_spin_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Sand Blast",
+        "image": "static\\images\\abilities\\mo_and_krill\\grappler_throw_sand_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
-      },
-      {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Combo",
+        "image": "static\\images\\abilities\\mo_and_krill\\grappler_combo_psd.png",
         "invert": true
       }
     ]
   },
   "19": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "RAGE",
+      "BLEED",
+      "REPEAT"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Serrated Knives",
+        "image": "static\\images\\abilities\\shiv\\shiv_toss_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Slice and Dice",
+        "image": "static\\images\\abilities\\shiv\\shiv_flash_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Bloodletting",
+        "image": "static\\images\\abilities\\shiv\\shiv_bloodletting_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Killing Blow",
+        "image": "static\\images\\abilities\\shiv\\shiv_killing_blow_psd.png",
         "invert": true
       }
     ]
   },
   "20": {
     "tagline": [
-      "Example",
-      "Word",
-      "Here"
+      "TEAM-UP",
+      "DISRUPTOR",
+      "ROCK SOLID"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Entangling Thorns",
+        "image": "/static/images/abilities/ivy/tengu_storm_flask_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Kudzu Connection",
+        "image": "/static/images/abilities/ivy/tengu_tether_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Stone Form",
+        "image": "/static/images/abilities/ivy/tengu_stone_form_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Air Drop",
+        "image": "/static/images/abilities/ivy/tengu_lightning_crash_psd.png",
         "invert": true
       }
     ]
   },
   "25": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "INITIATOR",
+      "FEARLESS",
+      "ONE MAN ARMY"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Alchemical Flask",
+        "image": "static\\images\\abilities\\warden\\warden_crowd_control_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Willpower",
+        "image": "static\\images\\abilities\\warden\\warden_high_alert_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Binding Word",
+        "image": "static\\images\\abilities\\warden\\warden_lock_down_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Last Stand",
+        "image": "static\\images\\abilities\\warden\\warden_riot_protocol_psd.png",
         "invert": true
       }
     ]
   },
   "27": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "RELENTLESS",
+      "ACROBRATICS",
+      "PURSUER"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Power Slash",
+        "image": "static\\images\\abilities\\yamato\\yamato_power_slash_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Flying Slash",
+        "image": "static\\images\\abilities\\yamato\\yamato_flying_strike_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Crimson Slash",
+        "image": "static\\images\\abilities\\yamato\\yamato_crimson_slash_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Shadow Transformation",
+        "image": "static\\images\\abilities\\yamato\\yamato_blinding_steel_psd.png",
         "invert": true
       }
     ]
   },
   "31": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "INITIATOR",
+      "HIGH FLYING",
+      "ARROGANT"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Ground Strike",
+        "image": "static\\images\\abilities\\lash\\lash_death_slam_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Grapple",
+        "image": "static\\images\\abilities\\lash\\lash_lash_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Flog",
+        "image": "static\\images\\abilities\\lash\\lash_flog_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Death Slam",
+        "image": "static\\images\\abilities\\yamato\\yamato_power_slash_psd.png",
         "invert": true
       }
     ]
   },
   "35": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "EVASIVE",
+      "DISRUPTOR",
+      "GOOEY"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Splatter",
+        "image": "static\\images\\abilities\\viscous\\viscous_goo_ball_psd.png",
+        "invert": false
+      },
+      {
+        "name": "The Cube",
+        "image": "static\\images\\abilities\\viscous\\viscous_restorative_goo_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Puddle Punch",
+        "image": "static\\images\\abilities\\viscous\\viscous_goo_punch_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
-        "invert": true
-      },
-      {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Goo Ball",
+        "image": "static\\images\\abilities\\viscous\\viscous_goo_sphere_psd.png",
         "invert": true
       }
     ]
   },
   "50": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "TRICKSTER",
+      "BURST DAMAGE",
+      "FROGS"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Barrage",
+        "image": "static\\images\\abilities\\pocket\\synth_barrage_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Flying Cloak",
+        "image": "static\\images\\abilities\\pocket\\synth_plasma_flux_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Enchanter's Satchel",
+        "image": "static\\images\\abilities\\pocket\\synth_pulse_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Affliction",
+        "image": "static\\images\\abilities\\pocket\\synth_affliction_psd.png",
         "invert": true
       }
     ]
   },
   "52": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "BODYGUARD",
+      "TRAVELLER",
+      "FOCUSED"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Fire Scarabs",
+        "image": "static\\images\\abilities\\mirage\\mirage_fire_beetles_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Dust Devil",
+        "image": "static\\images\\abilities\\mirage\\mirage_tornado_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Djinn's Mark",
+        "image": "static\\images\\abilities\\mirage\\mirage_sand_phantom_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Traveler",
+        "image": "static\\images\\abilities\\mirage\\mirage_teleport_psd.png",
         "invert": true
       }
     ]
   },
   "58": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "GUNNER",
+      "SLIPPERY",
+      "RAT-A-TAT"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Screwjab Dagger",
+        "image": "static\\images\\abilities\\vyper\\viper_debuffdagger_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Lethal Venom",
+        "image": "static\\images\\abilities\\vyper\\viper_venom_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Slither",
+        "image": "static\\images\\abilities\\vyper\\viper_snakedash_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Petrifying Bola",
+        "image": "static\\images\\abilities\\vyper\\viper_petrifybola_psd.png",
         "invert": true
       }
     ]
   },
   "60": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "TRICKSTER",
+      "COPYCAT",
+      "VERSATILE"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Vexing Bolt",
+        "image": "static\\images\\abilities\\sinclair\\magician_magicbolt_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Spectral Assistant",
+        "image": "static\\images\\abilities\\sinclair\\magician_cloneturret_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Rabbit Hex",
+        "image": "static\\images\\abilities\\sinclair\\magician_animalcurse_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Audience Participation",
+        "image": "static\\images\\abilities\\sinclair\\magician_copyult_psd.png",
         "invert": true
       }
     ]
   },
   "63": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "HARASSER",
+      "NIMBLE",
+      "VEXING"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Rake",
+        "image": "static\\images\\abilities\\mina\\vampirebat_rake_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Sanguine Retreat",
+        "image": "static\\images\\abilities\\mina\\vampirebat_sanguine_retreat_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Love Bites",
+        "image": "static\\images\\abilities\\mina\\vampirebat_love_bites_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Nox Nostra",
+        "image": "static\\images\\abilities\\mina\\vampirebat_nox_nostra_psd.png",
         "invert": true
       }
     ]
   },
   "64": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "STALKER",
+      "BLOODTHIRSTY",
+      "CRUEL"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Rend",
+        "image": "static\\images\\abilities\\drifter\\drifter_claw_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Stalker's Mark",
+        "image": "static\\images\\abilities\\drifter\\drifter_stalkersmark_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Bloodscent",
+        "image": "static\\images\\abilities\\drifter\\drifter_thehunger_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Eternal Night",
+        "image": "static\\images\\abilities\\drifter\\darkness_psd.png",
         "invert": true
       }
     ]
   },
   "65": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "DEVOUT",
+      "ARMS EXPERT",
+      "TACTICAL"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Consecrating Grenade",
+        "image": "static\\images\\abilities\\venator\\priest_grenade_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Gutshot",
+        "image": "static\\images\\abilities\\venator\\priest_shotgun_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Hex-Lined Snap Trap",
+        "image": "static\\images\\abilities\\venator\\priest_trap_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Ira Domini",
+        "image": "static\\images\\abilities\\venator\\priest_crossbow_psd.png",
         "invert": true
       }
     ]
   },
   "66": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "YOU",
+      "CAN'T",
+      "KILL ME"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Pain Battery",
+        "image": "static\\images\\abilities\\victor\\frank_pain_battery_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Jumpstart",
+        "image": "static\\images\\abilities\\victor\\frank_jump_start_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Aura of Suffering",
+        "image": "static\\images\\abilities\\victor\\frank_aura_of_suffering_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Shocking Reanimation",
+        "image": "static\\images\\abilities\\victor\\frank_shocking_reanimation_psd.png",
         "invert": true
       }
     ]
   },
   "67": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "HELPFUL",
+      "PROTECTOR",
+      "BOOKSMART"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Bookwyrm",
+        "image": "static\\images\\abilities\\paige\\bookworm_dragon_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Plot Armor",
+        "image": "static\\images\\abilities\\paige\\bookworm_defendandfight_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Captivating Read",
+        "image": "static\\images\\abilities\\paige\\bookworm_blindinglight_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Rallying Charge",
+        "image": "static\\images\\abilities\\paige\\bookworm_charge_psd.png",
         "invert": true
       }
     ]
   },
   "69": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "DISORIENTING",
+      "MAP CONTROL",
+      "MIND GAMES"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Call Bell",
+        "image": "static\\images\\abilities\\doorman\\doorman_bell_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Doorway",
+        "image": "static\\images\\abilities\\doorman\\doorman_doorway_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Luggage Cart",
+        "image": "static\\images\\abilities\\doorman\\doorman_luggagetrolley_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Hotel Guest",
+        "image": "static\\images\\abilities\\doorman\\doorman_elevator_psd.png",
         "invert": true
       }
     ]
   },
   "72": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "PUNK",
+      "CHAOTIC",
+      "G.O.A.T"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Bashdown",
+        "image": "static\\images\\abilities\\billy\\goat_sigilslam_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Rising Ram",
+        "image": "static\\images\\abilities\\billy\\goat_risingram_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Blasted",
+        "image": "static\\images\\abilities\\billy\\goat_blasted_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Chain Gang",
+        "image": "static\\images\\abilities\\billy\\goat_chaingang_psd.png",
         "invert": true
       }
     ]
   },
   "76": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "MORBID",
+      "AREA DENIAL",
+      "NECROMANCER"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Jar of Dead",
+        "image": "static\\images\\abilities\\graves\\necro_skull_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Grasping Hands",
+        "image": "static\\images\\abilities\\graves\\necro_hands_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Essence Theft",
+        "image": "static\\images\\abilities\\graves\\necro_siphon_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Borrowed Decree",
+        "image": "static\\images\\abilities\\graves\\necro_gravestone_psd.png",
         "invert": true
       }
     ]
   },
   "77": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "FINESSE",
+      "MOBILITY",
+      "A CUT ABOVE"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Disengaging Sigil",
+        "image": "static\\images\\abilities\\apollo\\fencer_sigil_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Riposte",
+        "image": "static\\images\\abilities\\apollo\\fencer_riposte_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Flawless Advance",
+        "image": "static\\images\\abilities\\apollo\\fencer_lungingstab_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Itani Lo Sahn",
+        "image": "static\\images\\abilities\\apollo\\fencer_ult_psd.png",
         "invert": true
       }
     ]
   },
   "79": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "HELPFUL",
+      "TINY",
+      "zZzzZ"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Pillow Toss",
+        "image": "static\\images\\abilities\\rem\\familiar_pillow_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Tag Along",
+        "image": "static\\images\\abilities\\rem\\familiar_tag_along_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Lil Helpers",
+        "image": "static\\images\\abilities\\rem\\familiar_helpers_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Naptime",
+        "image": "static\\images\\abilities\\rem\\familiar_sleep_psd.png",
         "invert": true
       }
     ]
   },
   "80": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "FERAL",
+      "HOT MESS",
+      "TRANSFORMATION"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Slam Fire",
+        "image": "static\\images\\abilities\\silver\\werewolf_slamfire_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Boot Kick",
+        "image": "static\\images\\abilities\\silver\\werewolf_jumpback_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Entangling Bola",
+        "image": "static\\images\\abilities\\silver\\werewolf_bola_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Lycan Curse",
+        "image": "static\\images\\abilities\\silver\\werewolf_lycancurse_psd.png",
         "invert": true
       }
     ]
   },
   "81": {
     "tagline": [
-      "Tagline",
-      "Word",
-      "Here"
+      "PERFORMER",
+      "DISRUPTIVE",
+      "DAZZLING"
     ],
     "abilities": [
       {
-        "name": "Ability 1",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Light Eater",
+        "image": "static\\images\\abilities\\celeste\\unicorn_flare_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 2",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Dazzling Trick",
+        "image": "static\\images\\abilities\\celeste\\unicorn_shield_psd.png",
         "invert": true
       },
       {
-        "name": "Ability 3",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Radiant Daggers",
+        "image": "static\\images\\abilities\\celeste\\unicorn_luminousflux_psd.png",
         "invert": true
       },
       {
-        "name": "Ultimate",
-        "description": "Description placeholder.",
-        "image": "",
+        "name": "Shining Wonder",
+        "image": "static\\images\\abilities\\celeste\\unicorn_orb_psd.png",
         "invert": true
       }
     ]

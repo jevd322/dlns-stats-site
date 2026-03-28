@@ -374,7 +374,7 @@ def hero_stats(hero_id: int):
 
 
 @bp.get("/heroes/<int:hero_id>/meta")
-@cache.cached(timeout=3600)
+@cache.cached(timeout=60)
 def hero_meta(hero_id: int):
     """Return curated metadata (tagline + abilities) for a specific hero."""
     meta_path = Path(current_app.root_path) / "data" / "hero_meta.json"
