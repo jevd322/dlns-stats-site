@@ -42,12 +42,14 @@ Stores per-match metadata.
 | `match_outcome` | INTEGER | Yes | Raw outcome enum from API |
 | `game_mode` | INTEGER | Yes | Raw mode enum from API |
 | `match_mode` | INTEGER | Yes | Raw match mode enum from API |
+| `event_title` | TEXT | Yes | Event name from match JSON (e.g. Night Shift) |
+| `event_week` | INTEGER | Yes | Event week from match JSON |
 | `start_time` | TEXT | Yes | ISO-8601 UTC (derived from API) |
 | `created_at` | TEXT | Yes | ISO-8601 UTC (scrape time) |
 
 Notes:
 - `start_time` may be derived from multiple API fields and normalized to ISO-8601 UTC.
-- A migration adds `start_time` if it does not exist.
+- Migrations add `start_time`, `event_title`, and `event_week` if they do not exist.
 
 ## Table: `players`
 
