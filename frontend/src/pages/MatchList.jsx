@@ -19,6 +19,7 @@ function MatchList() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [weekMap, setWeekMap] = useState({});
   const perPage = 20;
 
   // Hero filter state
@@ -38,6 +39,14 @@ function MatchList() {
   const [playerHighlight, setPlayerHighlight] = useState(-1);
   const [allPlayers, setAllPlayers] = useState([]);
   const playerRef = useRef(null);
+
+  // Load week map from matches.json
+  useEffect(() => {
+    fetch("/db/weeks")
+      .then((r) => r.json())
+      .then((data) => setWeekMap(data.weeks || {}))
+      .catch(() => {});
+  }, []);
 
   // Load hero and player lists for autocomplete
   useEffect(() => {
@@ -191,16 +200,18 @@ function MatchList() {
   };
 
   const teamName = (team) => {
-    if (team === 0) return (
-      <div className="flex text-team-amber items-center gap-1">
-        Hidden King
-      </div>
-    );
-    if (team === 1) return (
-      <div className="flex text-team-sapphire items-center gap-1">
-        Archmother
-      </div>
-    );
+    if (team === 0)
+      return (
+        <div className="flex text-team-amber items-center gap-1">
+          Hidden King
+        </div>
+      );
+    if (team === 1)
+      return (
+        <div className="flex text-team-sapphire items-center gap-1">
+          Archmother
+        </div>
+      );
     return "Unknown";
   };
 
@@ -358,39 +369,41 @@ function MatchList() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border-light text-white">
+                <th className="text-left p-4 w-[10%]">Week</th>
                 <th className="text-left p-4 w-[15%]">Match</th>
-                <th className="text-left p-4 w-[30%]">Winner</th>
+                <th className="text-left p-4 w-[25%]">Winner</th>
                 <th className="text-center p-4 w-[20%]">
                   <div className="flex justify-center gap-2">
-                <img
-                  src="/static/images/teamNames/team1_patron_logo_psd.png"
-                  alt="Hidden King"
-                  className="h-10"
-                  style={{
-                    filter:
-                      "brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%)",
-                  }}                    
-                />
+                    <img
+                      src="/static/images/teamNames/team1_patron_logo_psd.png"
+                      alt="Hidden King"
+                      className="h-10"
+                      style={{
+                        filter:
+                          "brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%)",
+                      }}
+                    />
                   </div>
                 </th>
                 <th className="p-4 w-[20%]">
                   <div className="flex justify-center gap-2">
-                <img
-                  src="/static/images/teamNames/team2_patron_logo_psd.png"
-                  alt="Team Sapphire"
-                  className="h-10"
-                  style={{
-                    filter:
-                      "brightness(0) saturate(100%) invert(24%) sepia(96%) saturate(1698%) hue-rotate(203deg) brightness(94%) contrast(115%)",
-                  }}
-                />                  </div>
+                    <img
+                      src="/static/images/teamNames/team2_patron_logo_psd.png"
+                      alt="Team Sapphire"
+                      className="h-10"
+                      style={{
+                        filter:
+                          "brightness(0) saturate(100%) invert(24%) sepia(96%) saturate(1698%) hue-rotate(203deg) brightness(94%) contrast(115%)",
+                      }}
+                    />{" "}
+                  </div>
                 </th>
               </tr>
             </thead>
             <tbody>
               {matches.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="p-4 text-center text-gray-500">
+                  <td colSpan="5" className="p-4 text-center text-gray-500">
                     No matches found
                   </td>
                 </tr>
@@ -400,6 +413,11 @@ function MatchList() {
                     key={match.match_id}
                     className="border-b border-border-light text-gray-200 hover:bg-hover"
                   >
+                    <td className="p-4 text-gray-400 text-sm">
+                      {weekMap[String(match.match_id)] != null
+                        ? `Night Shift #${weekMap[String(match.match_id)]}`
+                        : "-"}
+                    </td>
                     <td className="p-4">
                       <Link
                         to={`/match/${match.match_id}`}

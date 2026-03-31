@@ -366,6 +366,7 @@ CREATE TABLE IF NOT EXISTS players (
   player_healing INTEGER,
   pings_count INTEGER,
   result TEXT,
+  items TEXT,
   PRIMARY KEY (match_id, account_id),
   FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE,
   FOREIGN KEY (account_id) REFERENCES users(account_id) ON DELETE SET NULL
@@ -431,6 +432,14 @@ def db_init(conn: sqlite3.Connection) -> None:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_title TEXT")
 		if "event_week" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_week INTEGER")
+		conn.commit()
+	except Exception:
+		pass
+	try:
+		cur = conn.execute("PRAGMA table_info(players)")
+		cols = [r[1] for r in cur.fetchall()]
+		if "items" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
 		conn.commit()
 	except Exception:
 		pass
@@ -517,20 +526,28 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	if team is not None and winning_team is not None:
 		result = "Win" if int(team) == int(winning_team) else "Loss"
 
+	# Items: store only unsold items as JSON list of item_ids
+	raw_items = player.get("items") or []
+	unsold_item_ids = [
+		i["item_id"] for i in raw_items
+		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None
+	]
+	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
+
 	# Ensure user row exists and is updated
 	if account_id is not None:
 		upsert_user(conn, account_id, name_by_id.get(account_id, "Unknown"))
 
 	conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, pings_count, result) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, pings_count, result, items) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, pings_count=excluded.pings_count, result=excluded.result"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
 		),
 		(
 			match_id,
@@ -553,6 +570,7 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 			player_healing,
 			pings_count,
 			result,
+			items_json,
 		),
 	)
 
@@ -831,19 +849,26 @@ async def upsert_player_async(
 	if team is not None and winning_team is not None:
 		result = "Win" if int(team) == int(winning_team) else "Loss"
 
+	raw_items = player.get("items") or []
+	unsold_item_ids = [
+		i["item_id"] for i in raw_items
+		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None
+	]
+	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
+
 	if account_id is not None:
 		await upsert_user_async(conn, account_id, name_by_id.get(account_id, "Unknown"))
 
 	await conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, pings_count, result) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, pings_count, result, items) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, pings_count=excluded.pings_count, result=excluded.result"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
 		),
 		(
 			match_id,
@@ -866,6 +891,7 @@ async def upsert_player_async(
 			player_healing,
 			pings_count,
 			result,
+			items_json,
 		),
 	)
 

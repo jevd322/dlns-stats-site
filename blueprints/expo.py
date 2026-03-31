@@ -15,6 +15,7 @@ from pathlib import Path
 import requests
 from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 from heroes import get_hero_name as get_local_hero_name
+from cache import cache
 
 # Unique, isolated Blueprint for the DLNS exporter UI and API
 expo_bp = Blueprint(
@@ -873,6 +874,39 @@ def process_status(job_id: str) -> Any:  # type: ignore
             payload["result"] = job.get("result")
 
     return jsonify(payload)
+
+
+@expo_bp.get("/items")
+def items_list():  # type: ignore
+    cached = cache.get("dlns_items_list")
+    if cached is not None:
+        return jsonify(cached)
+    try:
+        resp = requests.get(
+            "https://assets.deadlock-api.com/v2/items",
+            params={"language": "english"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        cache.set("dlns_items_list", data, timeout=600)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
+@expo_bp.get("/items/<int:item_id>")
+@cache.cached(timeout=600)
+def item_detail(item_id: int):  # type: ignore
+    params = {"language": "english"}
+    if ITEM_CLIENT_VERSION:
+        params["client_version"] = ITEM_CLIENT_VERSION
+    try:
+        resp = requests.get(ITEM_DETAILS_URL.format(item_id=item_id), params=params, timeout=ITEM_REQUEST_TIMEOUT_S)
+        resp.raise_for_status()
+        return jsonify(resp.json())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
 
 
 # --- Routes ---
