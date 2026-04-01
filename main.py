@@ -420,30 +420,41 @@ def db_connect_readonly(db_path: Path) -> sqlite3.Connection:
 	return conn
 
 
-def db_init(conn: sqlite3.Connection) -> None:
+def db_init(conn: sqlite3.Connection) -> bool:
+	"""Initialize DB schema and run migrations.
+
+	Returns True when a migration added columns that require broad backfill.
+	"""
 	conn.executescript(SCHEMA_SQL)
+	large_table_change = False
+
 	# Migrations: ensure new columns exist on old DBs
 	try:
 		cur = conn.execute("PRAGMA table_info(matches)")
-		cols = [r[1] for r in cur.fetchall()]
+		cols = {r[1] for r in cur.fetchall()}
 		if "start_time" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN start_time TEXT")
+			large_table_change = True
 		if "event_title" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_title TEXT")
+			large_table_change = True
 		if "event_week" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_week INTEGER")
+			large_table_change = True
 		conn.commit()
 	except Exception:
 		pass
 	try:
 		cur = conn.execute("PRAGMA table_info(players)")
-		cols = [r[1] for r in cur.fetchall()]
+		cols = {r[1] for r in cur.fetchall()}
 		if "items" not in cols:
 			conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
+			large_table_change = True
 		conn.commit()
 	except Exception:
 		pass
 	conn.commit()
+	return large_table_change
 
 
 def upsert_user(conn: sqlite3.Connection, account_id: int, persona_name: Optional[str]) -> None:
@@ -753,23 +764,45 @@ async def adb_connect(db_path: Path) -> asqlite.Connection:
 	return conn
 
 
-async def db_init_async(conn: asqlite.Connection) -> None:
+async def db_init_async(conn: asqlite.Connection) -> bool:
+	"""Async schema init + migrations.
+
+	Returns True when a migration added columns that require broad backfill.
+	"""
 	await conn.executescript(SCHEMA_SQL)
+	large_table_change = False
 	try:
 		cur = await conn.execute("PRAGMA table_info(matches)")
 		rows = await cur.fetchall()
 		await cur.close()
-		cols = [r[1] for r in rows]
+		cols = {r[1] for r in rows}
 		if "start_time" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN start_time TEXT")
+			large_table_change = True
 		if "event_title" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_title TEXT")
+			large_table_change = True
 		if "event_week" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_week INTEGER")
+			large_table_change = True
 		await conn.commit()
 	except Exception:
 		pass
+
+	try:
+		cur = await conn.execute("PRAGMA table_info(players)")
+		rows = await cur.fetchall()
+		await cur.close()
+		cols = {r[1] for r in rows}
+		if "items" not in cols:
+			await conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
+			large_table_change = True
+		await conn.commit()
+	except Exception:
+		pass
+
 	await conn.commit()
+	return large_table_change
 
 
 async def upsert_user_async(conn: asqlite.Connection, account_id: int, persona_name: Optional[str]) -> None:
@@ -1464,7 +1497,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 	cache = load_json(cache_path, default={})
 	if not isinstance(cache, dict):
 		cache = {}
-	force_recheck_all = parse_bool(args.recheckall)
+
+	# Always bring DB schema up to date before deciding what to process.
+	conn = db_connect(db_path)
+	try:
+		had_large_table_change = db_init(conn)
+	finally:
+		conn.close()
+
+	force_recheck_all = parse_bool(args.recheckall) or had_large_table_change
+	if had_large_table_change:
+		print("Detected a large table schema update. Forcing full match refetch for this run.")
 
 	to_process: List[int] = []
 	seen: set[int] = set()
