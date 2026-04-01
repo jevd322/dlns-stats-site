@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List
+
+import requests
 
 from flask import Blueprint, current_app, jsonify, request
 from cache import cache
@@ -33,6 +36,27 @@ def format_player_data(player_row):
     if 'hero_id' in player:
         player['hero_name'] = get_hero_name(player['hero_id'])
     return player
+
+
+@bp.get("/weeks")
+@cache.cached(timeout=300)
+def weeks_map():  # type: ignore
+    matches_file = Path(current_app.root_path).parent / "matches.json"
+    if not matches_file.exists():
+        matches_file = Path("matches.json").resolve()
+    try:
+        with open(matches_file, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({"weeks": {}, "title": ""})
+    result = {}
+    for entry in data.get("weeks", []):
+        week = entry.get("week")
+        ids = entry.get("match_ids")
+        if isinstance(ids, list):
+            for mid in ids:
+                result[str(mid)] = week
+    return jsonify({"weeks": result, "title": data.get("title", "")})
 
 
 @bp.get("/matches/latest")
@@ -161,6 +185,63 @@ def match_players(match_id: int):  # type: ignore
         
         
         return jsonify({"players": data})
+
+@bp.get("/matches/<int:match_id>/items")
+def match_items(match_id: int):  # type: ignore
+    # Fetch item catalog (cached 10 min).
+    # If the cache is cold, do a short-timeout fetch so we don't block Flask's
+    # single-threaded dev server long enough to cause an ECONNRESET at the proxy.
+    item_catalog = cache.get("dlns_items_list")
+    if item_catalog is None:
+        try:
+            resp = requests.get(
+                "https://assets.deadlock-api.com/v2/items",
+                params={"language": "english"},
+                timeout=3,
+            )
+            resp.raise_for_status()
+            item_catalog = resp.json()
+            cache.set("dlns_items_list", item_catalog, timeout=600)
+        except Exception as e:
+            current_app.logger.warning("Item catalog unavailable: %s", e)
+            return jsonify({})
+
+    # Build id -> {name, item_slot_type, item_tier} lookup
+    item_lookup: dict = {}
+    for item in (item_catalog if isinstance(item_catalog, list) else []):
+        iid = item.get("id")
+        if iid is not None:
+            item_lookup[int(iid)] = {
+                "name": item.get("name", ""),
+                "item_slot_type": item.get("item_slot_type", ""),
+                "item_tier": item.get("item_tier"),
+            }
+
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            "SELECT account_id, items FROM players WHERE match_id = ?",
+            (match_id,),
+        )
+        rows = cur.fetchall()
+
+    result: dict = {}
+    for account_id, items_json in rows:
+        if not items_json:
+            continue
+        try:
+            item_ids = json.loads(items_json)
+        except Exception:
+            continue
+        enriched = []
+        for iid in item_ids:
+            meta = item_lookup.get(int(iid))
+            if meta and meta.get("name"):
+                enriched.append(meta)
+        if enriched:
+            result[str(account_id)] = enriched
+
+    return jsonify(result)
+
 
 @bp.get("/matches/<int:match_id>/users/<int:account_id>")
 @cache.cached(timeout=60)
@@ -328,6 +409,66 @@ def get_heroes():
         _load_if_needed()
         # Return the heroes dict directly - this will be the flat ID->name mapping
         return jsonify(_names)
+
+
+@bp.get("/heroes/<int:hero_id>/stats")
+@cache.cached(timeout=120)
+def hero_stats(hero_id: int):
+    """Return aggregated stats for a specific hero across all matches."""
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT
+                COUNT(*) as games_played,
+                SUM(CASE WHEN result = 'Win' THEN 1 ELSE 0 END) as wins,
+                ROUND(AVG(kills), 2) as avg_kills,
+                ROUND(AVG(deaths), 2) as avg_deaths,
+                ROUND(AVG(assists), 2) as avg_assists,
+                ROUND(AVG(CAST(kills + assists AS REAL) / MAX(deaths, 1)), 2) as avg_kda,
+                ROUND(AVG(player_damage), 0) as avg_damage,
+                ROUND(AVG(obj_damage), 0) as avg_obj_damage,
+                ROUND(AVG(player_healing), 0) as avg_healing,
+                ROUND(AVG(net_worth), 0) as avg_souls,
+                MAX(kills) as max_kills,
+                MAX(player_damage) as max_damage,
+                MAX(player_healing) as max_healing,
+                MAX(obj_damage) as max_obj_damage
+            FROM players
+            WHERE hero_id = ?
+            """,
+            (hero_id,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"stats": None})
+        cols = [c[0] for c in cur.description]
+        stats = dict(zip(cols, row))
+
+        # Pick rate = hero games / total match-player rows
+        total_cur = conn.execute("SELECT COUNT(*) FROM players WHERE account_id IS NOT NULL")
+        total = total_cur.fetchone()[0]
+        stats["pick_rate"] = round(stats["games_played"] / total, 4) if total else 0
+        stats["win_rate"] = round(stats["wins"] / stats["games_played"], 4) if stats["games_played"] else 0
+
+        return jsonify({"stats": stats})
+
+
+@bp.get("/heroes/<int:hero_id>/meta")
+@cache.cached(timeout=60)
+def hero_meta(hero_id: int):
+    """Return curated metadata (tagline + abilities) for a specific hero."""
+    meta_path = Path(current_app.root_path) / "data" / "hero_meta.json"
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({"error": "meta data unavailable"}), 503
+
+    entry = data.get(str(hero_id))
+    if entry is None:
+        return jsonify({"error": "not found"}), 404
+
+    return jsonify(entry)
 
 
 @bp.get("/players")

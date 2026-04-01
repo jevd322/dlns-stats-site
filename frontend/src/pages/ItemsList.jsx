@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 export default function ItemsList() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all'); // all, upgrade, ability, weapon
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState("all"); // all, weapon, vitality, spirit
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     fetchItems();
@@ -15,38 +15,51 @@ export default function ItemsList() {
   const fetchItems = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://assets.deadlock-api.com/v2/items');
-      if (!response.ok) throw new Error('Failed to fetch items');
+      const response = await fetch("/dlns/items");
+      if (!response.ok) throw new Error("Failed to fetch items");
       const data = await response.json();
       setItems(data);
       setError(null);
     } catch (err) {
       setError(err.message);
-      console.error('Error fetching items:', err);
+      console.error("Error fetching items:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredItems = items.filter(item => {
-    // Filter by type
-    if (filter !== 'all' && item.type !== filter) return false;
-    
-    // Filter by search term
-    if (searchTerm && !item.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
-    }
-    
-    // Only show shopable items or items with cost
-    return item.shopable || (item.cost && item.cost > 0);
-  });
+  const filteredItems = items
+    .filter((item) => {
+      // Only show shopable items
+      if (!item.shopable && !(item.cost && item.cost > 0)) return false;
+
+      // Filter by slot type
+      if (filter !== "all" && item.item_slot_type !== filter) return false;
+
+      // Filter by search term
+      if (
+        searchTerm &&
+        !item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => (a.item_tier ?? 0) - (b.item_tier ?? 0));
 
   const itemTypes = [
-    { value: 'all', label: 'All Items' },
-    { value: 'upgrade', label: 'Upgrades' },
-    { value: 'ability', label: 'Abilities' },
-    { value: 'weapon', label: 'Weapons' }
+    { value: "all", label: "All" },
+    { value: "weapon", label: "Weapon" },
+    { value: "vitality", label: "Vitality" },
+    { value: "spirit", label: "Spirit" },
   ];
+
+  const getLocalImage = (item) => {
+    const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
+    const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
+    return folder ? `/static/images/items/${folder}/${filename}` : null;
+  };
 
   if (loading) {
     return (
@@ -67,7 +80,7 @@ export default function ItemsList() {
           <div className="bg-red-500/20 border border-red-500 rounded-lg p-6">
             <h2 className="text-xl font-bold mb-2">Error Loading Items</h2>
             <p>{error}</p>
-            <button 
+            <button
               onClick={fetchItems}
               className="mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 rounded"
             >
@@ -80,7 +93,7 @@ export default function ItemsList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-8">
+    <div className="min-h-screen bg-panel text-white p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -104,14 +117,14 @@ export default function ItemsList() {
 
           {/* Type filter */}
           <div className="flex gap-2">
-            {itemTypes.map(type => (
+            {itemTypes.map((type) => (
               <button
                 key={type.value}
                 onClick={() => setFilter(type.value)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   filter === type.value
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-slate-800/50 text-gray-300 hover:bg-slate-700/50'
+                    ? "bg-purple-600 text-white"
+                    : "bg-slate-800/50 text-gray-300 hover:bg-slate-700/50"
                 }`}
               >
                 {type.label}
@@ -127,64 +140,81 @@ export default function ItemsList() {
             <div className="text-2xl font-bold">{items.length}</div>
           </div>
           <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Upgrades</div>
-            <div className="text-2xl font-bold">
-              {items.filter(i => i.type === 'upgrade').length}
+            <div className="text-gray-400 text-sm">Weapon</div>
+            <div className="text-2xl font-bold text-orange-400">
+              {
+                items.filter((i) => i.item_slot_type === "weapon" && i.shopable)
+                  .length
+              }
             </div>
           </div>
           <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Abilities</div>
-            <div className="text-2xl font-bold">
-              {items.filter(i => i.type === 'ability').length}
+            <div className="text-gray-400 text-sm">Vitality</div>
+            <div className="text-2xl font-bold text-green-400">
+              {
+                items.filter(
+                  (i) => i.item_slot_type === "vitality" && i.shopable,
+                ).length
+              }
             </div>
           </div>
           <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-            <div className="text-gray-400 text-sm">Weapons</div>
-            <div className="text-2xl font-bold">
-              {items.filter(i => i.type === 'weapon').length}
+            <div className="text-gray-400 text-sm">Spirit</div>
+            <div className="text-2xl font-bold text-purple-400">
+              {
+                items.filter((i) => i.item_slot_type === "spirit" && i.shopable)
+                  .length
+              }
             </div>
           </div>
         </div>
 
         {/* Items Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredItems.map(item => (
+          {filteredItems.map((item) => (
             <div
               key={item.id}
               className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50 
                        hover:border-purple-500/50 transition-all hover:scale-105 cursor-pointer"
             >
-              {/* Item Image/Icon */}
-              <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
-                {item.image || item.image_webp ? (
-                  <img 
-                    src={item.image_webp || item.image} 
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-4xl font-bold text-slate-600">
-                    {item.name.charAt(0).toUpperCase()}
+              {/* Item Image */}
+              {(() => {
+                const src = getLocalImage(item);
+                return src ? (
+                  <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-slate-700/50 flex items-center justify-center">
+                    <img
+                      src={src}
+                      alt={item.name}
+                      className="w-full h-full object-contain p-1"
+                      onError={(e) => {
+                        e.target.parentElement.style.display = "none";
+                      }}
+                    />
                   </div>
-                )}
-              </div>
+                ) : null;
+              })()}
 
               {/* Item Info */}
               <div className="space-y-1">
                 <h3 className="font-medium text-sm truncate" title={item.name}>
-                  {item.name.replace(/_/g, ' ')}
+                  {item.name.replace(/_/g, " ")}
                 </h3>
-                
+
                 <div className="flex items-center justify-between text-xs">
-                  <span className={`px-2 py-0.5 rounded ${
-                    item.type === 'upgrade' ? 'bg-blue-500/20 text-blue-300' :
-                    item.type === 'ability' ? 'bg-purple-500/20 text-purple-300' :
-                    item.type === 'weapon' ? 'bg-orange-500/20 text-orange-300' :
-                    'bg-gray-500/20 text-gray-300'
-                  }`}>
-                    {item.type}
+                  <span
+                    className={`px-2 py-0.5 rounded ${
+                      item.item_slot_type === "weapon"
+                        ? "bg-orange-500/20 text-orange-300"
+                        : item.item_slot_type === "vitality"
+                          ? "bg-green-500/20 text-green-300"
+                          : item.item_slot_type === "spirit"
+                            ? "bg-purple-500/20 text-purple-300"
+                            : "bg-gray-500/20 text-gray-300"
+                    }`}
+                  >
+                    {item.item_slot_type}
                   </span>
-                  
+
                   {item.cost && (
                     <span className="text-yellow-400 font-bold">
                       ${item.cost}

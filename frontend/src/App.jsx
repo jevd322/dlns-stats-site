@@ -23,6 +23,7 @@ function Navigation() {
     { path: '/', label: 'Matches' },
     { path: '/players', label: 'Players' },
     { path: '/heroes', label: 'Heroes' },
+    { path: '/items', label: 'Items' },
     { path: '/stats', label: 'Stats' },
     { path: '/sounds', label: 'Sounds' },
     { path: '/sounds-dev', label: 'Sounds Dev' },
@@ -70,6 +71,7 @@ function App() {
             <Route path="/player/:accountId" element={<PlayerDetail />} />
             <Route path="/heroes" element={<HeroesList />} />
             <Route path="/hero/:heroId" element={<HeroDetail />} />
+            <Route path="/items" element={<ItemsList />} />
             <Route path="/player/:accountId/hero/:heroId" element={<PlayerHeroDetail />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/sounds" element={<SoundLibrary />} />

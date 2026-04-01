@@ -7,6 +7,7 @@ function MatchDetail() {
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [heroes, setHeroes] = useState({});
+  const [itemsByPlayer, setItemsByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -14,6 +15,7 @@ function MatchDetail() {
     fetchHeroes();
     fetchMatchPlayers();
     fetchMatchList();
+    fetchMatchItems();
   }, [matchId]);
 
   const fetchHeroes = async () => {
@@ -54,6 +56,25 @@ function MatchDetail() {
     } catch (err) {
       console.error("Failed to fetch match list:", err);
     }
+  };
+
+  const fetchMatchItems = async () => {
+    try {
+      const response = await fetch(`/db/matches/${matchId}/items`);
+      if (response.ok) {
+        const data = await response.json();
+        setItemsByPlayer(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch match items:", err);
+    }
+  };
+
+  const getLocalItemImage = (item) => {
+    if (!item.name) return null;
+    const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
+    const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
+    return folder ? `/static/images/items/${folder}/${filename}` : null;
   };
 
   const getHeroName = (heroId) => {
@@ -148,7 +169,16 @@ function MatchDetail() {
       {/* Team Amber */}
       <div className="mb-6">
         <div className="bg-panel text-gray-300 shadow rounded-lg p-6 ">
-          <table className="w-full table-fixed">
+          <table className="w-full table-auto">
+            <colgroup>
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "48%" }} />
+            </colgroup>
+
             <thead>
               <tr>
                 <img
@@ -162,12 +192,12 @@ function MatchDetail() {
                 />
               </tr>
               <tr className="border-b">
-                <th className="text-left p-3 w-[20%]">Player</th>
-                <th className="text-left p-3 w-[13%]">K/D/A</th>
-                <th className="text-left p-3 w-[13%]">Souls</th>
-                <th className="text-left p-3 w-[13%]">Player DMG</th>
-                <th className="text-left p-3 w-[13%]">Obj DMG</th>
-                <th className="text-left p-3 w-[28%]">Items</th>
+                <th className="text-left p-3">Player</th>
+                <th className="text-left p-3">K/D/A</th>
+                <th className="text-left p-3">Souls</th>
+                <th className="text-left p-3">Player DMG</th>
+                <th className="text-left p-3">Obj DMG</th>
+                <th className="text-left p-3">Items</th>
               </tr>
             </thead>
             <tbody>
@@ -217,7 +247,27 @@ function MatchDetail() {
                   <td className="p-3">
                     {(player.obj_damage || 0).toLocaleString()}
                   </td>
-                  <td className="p-3">{/* Items placeholder */}</td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(itemsByPlayer[String(player.account_id)] || []).map(
+                        (item, i) => {
+                          const src = getLocalItemImage(item);
+                          return src ? (
+                            <img
+                              key={i}
+                              src={src}
+                              alt={item.name}
+                              title={item.name}
+                              className="w-7 h-7 rounded object-contain bg-slate-700/50"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          ) : null;
+                        },
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -241,19 +291,19 @@ function MatchDetail() {
                   }}
                 />
               </tr>
-              <tr className="border-b">
+              <tr className="border-b border-slate-700/50">
                 <th className="text-left p-3 w-[20%]">Player</th>
-                <th className="text-left p-3 w-[13%]">K/D/A</th>
-                <th className="text-left p-3 w-[13%]">Souls</th>
-                <th className="text-left p-3 w-[13%]">Player DMG</th>
-                <th className="text-left p-3 w-[13%]">Obj DMG</th>
-                <th className="text-left p-3 w-[28%]">Items</th>
+                <th className="text-left p-3 w-[8%]">K/D/A</th>
+                <th className="text-left p-3 w-[8%]">Souls</th>
+                <th className="text-left p-3 w-[8%]">Player DMG</th>
+                <th className="text-left p-3 w-[8%]">Obj DMG</th>
+                <th className="text-left p-3 w-[40%]">Items</th>
               </tr>
             </thead>
             <tbody>
               {sapphirePlayers.map((player, idx) => (
                 <tr key={idx} className="border-b hover:bg-slate-800/90">
-                  <td className="p-3 flex flex-row gap-4">
+                  <td className="text-md p-3 flex flex-row gap-4 col-span-2">
                     {player.hero_id ? (
                       <Link
                         to={`/hero/${player.hero_id}`}
@@ -287,18 +337,38 @@ function MatchDetail() {
                     )}
                   </td>
 
-                  <td className="p-3">
+                  <td className="text-xs p-3">
                     {player.kills || 0} / {player.deaths || 0} /{" "}
                     {player.assists || 0}
                   </td>
-                  <td className="p-3">{player.net_worth || 0}</td>
-                  <td className="p-3">
+                  <td className="text-xs p-3">{player.net_worth || 0}</td>
+                  <td className="text-xs p-3">
                     {(player.player_damage || 0).toLocaleString()}
                   </td>
-                  <td className="p-3">
+                  <td className="text-xs p-3">
                     {(player.obj_damage || 0).toLocaleString()}
                   </td>
-                  <td className="p-3">{/* Items placeholder */}</td>
+                  <td className="text-xs p-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(itemsByPlayer[String(player.account_id)] || []).map(
+                        (item, i) => {
+                          const src = getLocalItemImage(item);
+                          return src ? (
+                            <img
+                              key={i}
+                              src={src}
+                              alt={item.name}
+                              title={item.name}
+                              className="w-7 h-7 rounded object-contain bg-slate-700/50"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          ) : null;
+                        },
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
