@@ -5,7 +5,7 @@ function MatchDetail() {
   const { matchId } = useParams();
   const navigate = useNavigate();
   const [players, setPlayers] = useState([]);
-  const [matches, setMatches] = useState([]);
+  const [adjacentMatches, setAdjacentMatches] = useState({ previous_match_id: null, next_match_id: null });
   const [heroes, setHeroes] = useState({});
   const [itemsByPlayer, setItemsByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
@@ -14,7 +14,7 @@ function MatchDetail() {
   useEffect(() => {
     fetchHeroes();
     fetchMatchPlayers();
-    fetchMatchList();
+    fetchAdjacentMatches();
     fetchMatchItems();
   }, [matchId]);
 
@@ -46,15 +46,15 @@ function MatchDetail() {
     }
   };
 
-  const fetchMatchList = async () => {
+  const fetchAdjacentMatches = async () => {
     try {
-      const response = await fetch("/db/matches/latest");
+      const response = await fetch(`/db/matches/${matchId}/adjacent`);
       if (response.ok) {
         const data = await response.json();
-        setMatches(data.matches || []);
+        setAdjacentMatches(data);
       }
     } catch (err) {
-      console.error("Failed to fetch match list:", err);
+      console.error("Failed to fetch adjacent matches:", err);
     }
   };
 
@@ -89,16 +89,8 @@ function MatchDetail() {
     return `/static/images/hero icons/${formattedName}_sm_psd.png`;
   };
 
-  const currentIndex = matches.findIndex(
-    (m) => m.match_id === parseInt(matchId),
-  );
-  const currentMatch = currentIndex >= 0 ? matches[currentIndex] : null;
-  const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex >= 0 && currentIndex < matches.length - 1;
-  const previousMatchId = hasPrevious
-    ? matches[currentIndex - 1].match_id
-    : null;
-  const nextMatchId = hasNext ? matches[currentIndex + 1].match_id : null;
+  const previousMatchId = adjacentMatches.previous_match_id;
+  const nextMatchId = adjacentMatches.next_match_id;
 
   const teamName = (team) => {
     return team === 0 ? "Amber" : team === 1 ? "Sapphire" : "Unknown";
@@ -144,14 +136,14 @@ function MatchDetail() {
             onClick={() =>
               previousMatchId && navigate(`/match/${previousMatchId}`)
             }
-            disabled={!hasPrevious}
+            disabled={!previousMatchId}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             ← Previous Match
           </button>
           <button
             onClick={() => nextMatchId && navigate(`/match/${nextMatchId}`)}
-            disabled={!hasNext}
+            disabled={!nextMatchId}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Next Match →
@@ -160,31 +152,22 @@ function MatchDetail() {
       </div>
 
       <h1 className="text-gray-300 text-3xl font-bold mb-2">Match {matchId}</h1>
-      {currentMatch && currentMatch.start_time && (
+      {adjacentMatches.start_time && (
         <p className="text-gray-500 mb-6">
-          {formatDate(currentMatch.start_time)}
+          {formatDate(adjacentMatches.start_time)}
         </p>
       )}
 
       {/* Team Amber */}
       <div className="mb-6">
-        <div className="bg-panel text-gray-300 shadow rounded-lg p-6 ">
-          <table className="w-full table-auto">
-            <colgroup>
-              <col style={{ width: "20%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "48%" }} />
-            </colgroup>
-
+        <div className="bg-panel text-gray-300 shadow p-6 ">
+          <table className="w-full table-auto rounded-lg ">
             <thead>
               <tr>
                 <img
                   src="/static/images/teamNames/team1_patron_logo_psd.png"
                   alt="Team Amber"
-                  className="h-12"
+                  className="h-12 m-2"
                   style={{
                     filter:
                       "brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%)",
@@ -192,18 +175,18 @@ function MatchDetail() {
                 />
               </tr>
               <tr className="border-b">
-                <th className="text-left p-3">Player</th>
-                <th className="text-left p-3">K/D/A</th>
-                <th className="text-left p-3">Souls</th>
-                <th className="text-left p-3">Player DMG</th>
-                <th className="text-left p-3">Obj DMG</th>
+                <th className="text-left p-3 w-50">Player</th>
+                <th className="text-left p-3 w-30">K/D/A</th>
+                <th className="text-left p-3 w-25">Souls</th>
+                <th className="text-left p-3 w-30">Player DMG</th>
+                <th className="text-left p-3 w-25">Obj DMG</th>
                 <th className="text-left p-3">Items</th>
               </tr>
             </thead>
             <tbody>
               {amberPlayers.map((player, idx) => (
-                <tr key={idx} className="border-b hover:bg-slate-800/90">
-                  <td className="p-3 flex flex-row gap-4">
+                <tr key={idx} className="border-b border-gray-700/50 hover:bg-slate-800/90 truncate">
+                  <td className="p-3 flex flex-row gap-4 w-40 max-w-40 overflow-hidden">
                     {player.hero_id ? (
                       <Link
                         to={`/hero/${player.hero_id}`}
@@ -228,12 +211,13 @@ function MatchDetail() {
                     {player.account_id ? (
                       <Link
                         to={`/player/${player.account_id}`}
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 hover:underline min-w-0 truncate"
+                        title={player.persona_name || "Anonymous"}
                       >
                         {player.persona_name || "Anonymous"}
                       </Link>
                     ) : (
-                      player.persona_name || "Anonymous"
+                      <span className="min-w-0 truncate" title={player.persona_name || "Anonymous"}>{player.persona_name || "Anonymous"}</span>
                     )}
                   </td>
                   <td className="p-3">
@@ -273,12 +257,11 @@ function MatchDetail() {
             </tbody>
           </table>
         </div>
-      </div>
+
 
       {/* Team Sapphire */}
-      <div>
         <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
-          <table className="w-full table-fixed">
+          <table className="w-full table-auto">
             <thead>
               <tr className="">
                 <img
@@ -291,19 +274,19 @@ function MatchDetail() {
                   }}
                 />
               </tr>
-              <tr className="border-b border-slate-700/50">
-                <th className="text-left p-3 w-[20%]">Player</th>
-                <th className="text-left p-3 w-[8%]">K/D/A</th>
-                <th className="text-left p-3 w-[8%]">Souls</th>
-                <th className="text-left p-3 w-[8%]">Player DMG</th>
-                <th className="text-left p-3 w-[8%]">Obj DMG</th>
-                <th className="text-left p-3 w-[40%]">Items</th>
+              <tr className="border-b">
+                <th className="text-left p-3 w-50">Player</th>
+                <th className="text-left p-3 w-30">K/D/A</th>
+                <th className="text-left p-3 w-25">Souls</th>
+                <th className="text-left p-3 w-30">Player DMG</th>
+                <th className="text-left p-3 w-25">Obj DMG</th>
+                <th className="text-left p-3">Items</th>
               </tr>
             </thead>
             <tbody>
               {sapphirePlayers.map((player, idx) => (
-                <tr key={idx} className="border-b hover:bg-slate-800/90">
-                  <td className="text-md p-3 flex flex-row gap-4 col-span-2">
+                <tr key={idx} className="border-b border-gray-700/50 hover:bg-slate-800/90 truncate">
+                  <td className="text-md p-3 flex flex-row gap-4 w-40 max-w-40 overflow-hidden">
                     {player.hero_id ? (
                       <Link
                         to={`/hero/${player.hero_id}`}
@@ -313,7 +296,7 @@ function MatchDetail() {
                         <img
                           src={getHeroIcon(player.hero_id)}
                           alt={getHeroName(player.hero_id)}
-                          className="w-8 h-8 rounded-md object-cover"
+                          className="max-w-8 max-h-8 rounded-md object-cover"
                           onError={(e) => {
                             e.target.style.display = "none";
                             e.target.parentElement.innerHTML = getHeroName(
@@ -328,27 +311,28 @@ function MatchDetail() {
                     {player.account_id ? (
                       <Link
                         to={`/player/${player.account_id}`}
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 hover:underline min-w-0 truncate"
+                        title={player.persona_name || "Anonymous"}
                       >
                         {player.persona_name || "Anonymous"}
                       </Link>
                     ) : (
-                      player.persona_name || "Anonymous"
+                      <span className="min-w-0 truncate" title={player.persona_name || "Anonymous"}>{player.persona_name || "Anonymous"}</span>
                     )}
                   </td>
 
-                  <td className="text-xs p-3">
+                  <td className="p-3">
                     {player.kills || 0} / {player.deaths || 0} /{" "}
                     {player.assists || 0}
                   </td>
-                  <td className="text-xs p-3">{player.net_worth || 0}</td>
-                  <td className="text-xs p-3">
+                  <td className="p-3">{player.net_worth || 0}</td>
+                  <td className="p-3">
                     {(player.player_damage || 0).toLocaleString()}
                   </td>
-                  <td className="text-xs p-3">
+                  <td className="p-3">
                     {(player.obj_damage || 0).toLocaleString()}
                   </td>
-                  <td className="text-xs p-3">
+                  <td className="p-3">
                     <div className="flex flex-wrap gap-1">
                       {(itemsByPlayer[String(player.account_id)] || []).map(
                         (item, i) => {

@@ -6,7 +6,15 @@ function HeroDetail() {
   const [heroes, setHeroes] = useState({});
   const [heroStats, setHeroStats] = useState(null);
   const [heroMeta, setHeroMeta] = useState(null);
+  const [topPlayers, setTopPlayers] = useState([]);
+  const [topItems, setTopItems] = useState([]);
+  const [effectiveWith, setEffectiveWith] = useState([]);
+  const [effectiveAgainst, setEffectiveAgainst] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showMorePlayers, setShowMorePlayers] = useState(false);
+  const [showMoreItems, setShowMoreItems] = useState(false);
+  const [showMoreWith, setShowMoreWith] = useState(false);
+  const [showMoreAgainst, setShowMoreAgainst] = useState(false);
 
   useEffect(() => {
     fetchHeroes();
@@ -15,10 +23,13 @@ function HeroDetail() {
   const fetchHeroes = async () => {
     try {
       setLoading(true);
-      const [heroesRes, statsRes, metaRes] = await Promise.all([
+      const [heroesRes, statsRes, metaRes, topPlayersRes, topItemsRes, matchupsRes] = await Promise.all([
         fetch("/db/heroes"),
         fetch(`/db/heroes/${heroId}/stats`),
         fetch(`/db/heroes/${heroId}/meta`),
+        fetch(`/db/heroes/${heroId}/top_players`),
+        fetch(`/db/heroes/${heroId}/top_items`),
+        fetch(`/db/heroes/${heroId}/matchups`),
       ]);
       if (heroesRes.ok) {
         const data = await heroesRes.json();
@@ -31,6 +42,19 @@ function HeroDetail() {
       if (metaRes.ok) {
         const data = await metaRes.json();
         setHeroMeta(data);
+      }
+      if (topPlayersRes.ok) {
+        const data = await topPlayersRes.json();
+        setTopPlayers(data.players ?? []);
+      }
+      if (topItemsRes.ok) {
+        const data = await topItemsRes.json();
+        setTopItems(data.items ?? []);
+      }
+      if (matchupsRes.ok) {
+        const data = await matchupsRes.json();
+        setEffectiveWith(data.effective_with ?? []);
+        setEffectiveAgainst(data.effective_against ?? []);
       }
     } catch (err) {
       console.error("Failed to fetch heroes:", err);
@@ -50,6 +74,15 @@ function HeroDetail() {
   const hero = heroes[heroId];
   const heroName = hero?.name || hero || "Unknown Hero";
 
+  const heroIcon = (hid) => {
+    const h = heroes[hid];
+    const name = (h?.name || h || "").toLowerCase().replace(/\s+/g, "_");
+    return `/static/images/hero icons/${name}_sm_psd.png`;
+  };
+  const heroDisplayName = (hid) => {
+    const h = heroes[hid];
+    return h?.name || h || `Hero ${hid}`;
+  };
   return (
     <div className="grid grid-cols-10 grid-rows-[auto_auto] p-8">
       {/* Hero Header */}
@@ -110,7 +143,7 @@ function HeroDetail() {
       </div>
 
       {/* Hero Stats */}
-      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-6 row-span-2">
+      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-6 row-span-2 ml-4">
         <h2 className="text-xl font-bold mb-4">Stats</h2>
 
         {/* Row 1 — Averages */}
@@ -223,13 +256,179 @@ function HeroDetail() {
         </div>
       </div>
 
-      {/* Additional Info */}
-      <div className="bg-white shadow rounded-lg p-6 col-span-4">
-        <h2 className="text-2xl font-bold mb-4">Additional Information</h2>
-        <p className="text-gray-600">
-          Detailed hero information, lore, and strategies will be displayed
-          here.
-        </p>
+      {/* Most Played By */}
+      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-4">
+        <h2 className="text-xl font-bold mb-4">Most Played By</h2>
+        {topPlayers.length === 0 ? (
+          <p className="text-gray-500 text-sm">No data available.</p>
+        ) : (
+          <>
+            <ol className="space-y-2">
+              {(showMorePlayers ? topPlayers : topPlayers.slice(0, 5)).map((p, i) => (
+                <li key={p.account_id} className="flex items-center gap-3">
+                  <span className="text-gray-500 text-sm w-5 text-right">{i + 1}.</span>
+                  <Link
+                    to={`/players/${p.account_id}`}
+                    className="flex-1 text-blue-400 hover:underline truncate"
+                  >
+                    {p.persona_name ?? p.account_id}
+                  </Link>
+                  <span className="text-gray-400 text-sm">{p.games_played}g</span>
+                  <span className={`text-sm font-semibold ${p.win_rate >= 0.5 ? "text-green-400" : "text-red-400"}`}>
+                    {(p.win_rate * 100).toFixed(0)}%
+                  </span>
+                </li>
+              ))}
+            </ol>
+            {topPlayers.length > 5 && (
+              <button
+                onClick={() => setShowMorePlayers((v) => !v)}
+                className="mt-3 text-xs text-blue-400 hover:underline"
+              >
+                {showMorePlayers ? 'Show less' : `Show ${topPlayers.length - 5} more`}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Most Bought Items */}
+      <div className="bg-panel text-gray-300 shadow rounded-lg p-6 col-span-10 mt-4">
+        <h2 className="text-xl font-bold mb-4">Most Bought Items</h2>
+        {topItems.length === 0 ? (
+          <p className="text-gray-500 text-sm">No item data available.</p>
+        ) : (
+          <>
+          <div className="flex flex-wrap gap-4">
+            {(showMoreItems ? topItems : topItems.slice(0, 5)).map((item) => {
+              const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
+              const imgSrc = folder
+                ? `/static/images/items/${folder}/${item.name.toLowerCase().replace(/ /g, "_")}_psd.png`
+                : null;
+              const slotColor =
+                item.item_slot_type === "weapon"
+                  ? "text-orange-400"
+                  : item.item_slot_type === "vitality"
+                  ? "text-green-400"
+                  : item.item_slot_type === "spirit"
+                  ? "text-purple-400"
+                  : "text-gray-400";
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-col items-center bg-slate-800 rounded p-3 w-24 text-center"
+                  title={item.name}
+                >
+                  {imgSrc && (
+                    <img
+                      src={imgSrc}
+                      alt={item.name}
+                      className="w-12 h-12 object-contain mb-1"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
+                  )}
+                  <p className="text-xs text-gray-200 leading-tight truncate w-full">{item.name}</p>
+                  <p className={`text-xs font-semibold mt-1 ${slotColor}`}>
+                    {(item.pick_rate * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-500">{item.count}×</p>
+                </div>
+              );
+            })}
+          </div>
+          {topItems.length > 5 && (
+            <button
+              onClick={() => setShowMoreItems((v) => !v)}
+              className="mt-3 text-xs text-blue-400 hover:underline"
+            >
+              {showMoreItems ? 'Show less' : `Show ${topItems.length - 5} more`}
+            </button>
+          )}
+          </>
+        )}
+      </div>
+
+      {/* Matchups */}
+      <div className="col-span-10 mt-4 grid grid-cols-2 gap-4">
+        {/* Effective With */}
+        <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
+          <h2 className="text-xl font-bold mb-4 text-green-400">Most Effective With</h2>
+          {effectiveWith.length === 0 ? (
+            <p className="text-gray-500 text-sm">Not enough data.</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {(showMoreWith ? effectiveWith : effectiveWith.slice(0, 5)).map((h) => (
+                  <Link
+                    key={h.hero_id}
+                    to={`/heroes/${h.hero_id}`}
+                    className="flex items-center gap-3 hover:bg-slate-700 rounded px-2 py-1 transition-colors"
+                  >
+                    <img
+                      src={heroIcon(h.hero_id)}
+                      alt={heroDisplayName(h.hero_id)}
+                      className="w-8 h-8 object-cover rounded"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
+                    <span className="flex-1 text-gray-200 text-sm">{heroDisplayName(h.hero_id)}</span>
+                    <span className="text-gray-500 text-xs">{h.games}g</span>
+                    <span className="text-green-400 text-sm font-semibold">
+                      {(h.win_rate * 100).toFixed(0)}%
+                    </span>
+                  </Link>
+                ))}
+              </div>
+              {effectiveWith.length > 5 && (
+                <button
+                  onClick={() => setShowMoreWith((v) => !v)}
+                  className="mt-3 text-xs text-blue-400 hover:underline"
+                >
+                  {showMoreWith ? 'Show less' : `Show ${effectiveWith.length - 5} more`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Effective Against */}
+        <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
+          <h2 className="text-xl font-bold mb-4 text-red-400">Most Effective Against</h2>
+          {effectiveAgainst.length === 0 ? (
+            <p className="text-gray-500 text-sm">Not enough data.</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {(showMoreAgainst ? effectiveAgainst : effectiveAgainst.slice(0, 5)).map((h) => (
+                  <Link
+                    key={h.hero_id}
+                    to={`/heroes/${h.hero_id}`}
+                    className="flex items-center gap-3 hover:bg-slate-700 rounded px-2 py-1 transition-colors"
+                  >
+                    <img
+                      src={heroIcon(h.hero_id)}
+                      alt={heroDisplayName(h.hero_id)}
+                      className="w-8 h-8 object-cover rounded"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
+                    <span className="flex-1 text-gray-200 text-sm">{heroDisplayName(h.hero_id)}</span>
+                    <span className="text-gray-500 text-xs">{h.games}g</span>
+                    <span className="text-red-400 text-sm font-semibold">
+                    {(h.win_rate * 100).toFixed(0)}%
+                  </span>
+                  </Link>
+                ))}
+              </div>
+              {effectiveAgainst.length > 5 && (
+                <button
+                  onClick={() => setShowMoreAgainst((v) => !v)}
+                  className="mt-3 text-xs text-blue-400 hover:underline"
+                >
+                  {showMoreAgainst ? 'Show less' : `Show ${effectiveAgainst.length - 5} more`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
