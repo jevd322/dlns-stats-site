@@ -100,7 +100,7 @@ def create_app() -> Flask:
             "text/csv",                      
             "text/tab-separated-values",     
         ],
-        TEMPLATES_AUTO_RELOAD=True,
+        TEMPLATES_AUTO_RELOAD=False,
     )
     compress.init_app(app)
     
@@ -276,6 +276,26 @@ def create_app() -> Flask:
         except Exception:
             return None, None
 
+    # Expose selected environment-configurable links to templates
+    app.config["YOUTUBE_URL"] = os.getenv("YOUTUBE_URL", "https://www.youtube.com/@DeadlockNightShift")
+    app.config["TWITCH_URL"] = os.getenv("TWITCH_URL", "https://www.twitch.tv/deadlocknightshift")
+    app.config["DEADLOCK_URL"] = os.getenv("DEADLOCK_URL", "https://store.steampowered.com/app/1422450/Deadlock/")
+    app.config["KOFI_URL"] = os.getenv("KOFI_URL", "https://ko-fi.com/jonesy_alr")
+    app.config["PATREON_URL"] = os.getenv("PATREON_URL", "")  # optional
+
+    DATA_DIR = Path("data")
+    COMMUNITY_FILE = DATA_DIR / "community.json"
+
+    def _file_etag_and_lastmod(p: Path) -> tuple[str | None, str | None]:
+        try:
+            b = p.read_bytes()
+            etag = '"' + hashlib.sha1(b).hexdigest() + f'-{len(b)}' + '"'
+            st = p.stat()
+            lastmod = formatdate(st.st_mtime, usegmt=True)
+            return etag, lastmod
+        except Exception:
+            return None, None
+
     # Context processors
     @app.context_processor
     def inject_links():
@@ -417,7 +437,7 @@ def create_app() -> Flask:
             q=q,
             users=users,
             meta_title=f"Search • {q} • DLNS Stats",
-            meta_desc=f'Search results for "{q}" on DLNS Stats.',
+            meta_desc=f"Search results for “{q}” on DLNS Stats.",
             meta_image=_og_image_abs(),
             meta_url=_abs(request.full_path.split('?',1)[0] + ('?' + request.query_string.decode() if request.query_string else '')),
         )
@@ -692,8 +712,9 @@ def create_app() -> Flask:
 
     return app
 
-
-
+if __name__ == "__main__":
+    app = create_app()
+    app.run(port=5050, debug=False)
 
 if __name__ == "__main__":
     app = create_app()
