@@ -45,18 +45,114 @@ def weeks_map():  # type: ignore
     if not matches_file.exists():
         matches_file = Path("matches.json").resolve()
     try:
-        with open(matches_file, encoding="utf-8") as f:
+        # Accept UTF-8 files with or without BOM.
+        with open(matches_file, encoding="utf-8-sig") as f:
             data = json.load(f)
     except Exception:
         return jsonify({"weeks": {}, "title": ""})
-    result = {}
-    for entry in data.get("weeks", []):
-        week = entry.get("week")
-        ids = entry.get("match_ids")
-        if isinstance(ids, list):
-            for mid in ids:
-                result[str(mid)] = week
-    return jsonify({"weeks": result, "title": data.get("title", "")})
+    result: Dict[str, Any] = {}
+    details: Dict[str, Any] = {}
+
+    week_sources: List[tuple[str, List[Any]]] = []
+    root_series = data.get("series")
+    if isinstance(root_series, list):
+        for series_obj in root_series:
+            if not isinstance(series_obj, dict):
+                continue
+            series_title = str(series_obj.get("title") or "").strip()
+            entries = series_obj.get("weeks")
+            if not isinstance(entries, list):
+                entries = series_obj.get("events")
+            if isinstance(entries, list):
+                week_sources.append((series_title, entries))
+
+    if not week_sources:
+        entries = data.get("weeks")
+        if not isinstance(entries, list):
+            entries = data.get("events")
+        if isinstance(entries, list):
+            week_sources.append((str(data.get("title") or "").strip(), entries))
+
+    for series_title, entries in week_sources:
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            week = entry.get("week")
+
+            # Backward-compatible format: week.match_ids = [id, id]
+            ids = entry.get("match_ids")
+            if isinstance(ids, list):
+                for mid in ids:
+                    result[str(mid)] = week
+                    key = str(mid)
+                    if key not in details:
+                        details[key] = {
+                            "series": series_title or str(entry.get("title") or "").strip(),
+                            "week": week,
+                            "team_a": None,
+                            "team_b": None,
+                            "game": None,
+                        }
+
+            # New format: week.games = [{team_a, team_b, matches:[{game, match_id}]}]
+            games = entry.get("games")
+            if not isinstance(games, list):
+                continue
+
+            for series in games:
+                if not isinstance(series, dict):
+                    continue
+                team_a = series.get("team_a") or series.get("team1")
+                team_b = series.get("team_b") or series.get("team2")
+
+                nested_matches = series.get("matches")
+                if not isinstance(nested_matches, list):
+                    nested_matches = series.get("games")
+
+                if isinstance(nested_matches, list):
+                    for idx, game in enumerate(nested_matches, start=1):
+                        game_label = None
+                        mid = None
+                        if isinstance(game, dict):
+                            game_label = game.get("game") or game.get("game_label") or game.get("label")
+                            mid = game.get("match_id") if "match_id" in game else game.get("id")
+                        else:
+                            mid = game
+                            game_label = f"Game {idx}"
+
+                        try:
+                            key = str(int(mid))
+                        except Exception:
+                            continue
+
+                        result[key] = week
+                        if key not in details:
+                            details[key] = {
+                                "series": series_title or str(entry.get("title") or "").strip(),
+                                "week": week,
+                                "team_a": team_a,
+                                "team_b": team_b,
+                                "game": game_label,
+                            }
+                    continue
+
+                # Alternate compact format: one record with match_id + game
+                try:
+                    key = str(int(series.get("match_id")))
+                except Exception:
+                    continue
+
+                result[key] = week
+                if key not in details:
+                    details[key] = {
+                        "series": series_title or str(entry.get("title") or "").strip(),
+                        "week": week,
+                        "team_a": team_a,
+                        "team_b": team_b,
+                        "game": series.get("game") or series.get("game_label"),
+                    }
+
+    return jsonify({"weeks": result, "details": details, "title": data.get("title", "")})
 
 
 @bp.get("/stats/overview")
