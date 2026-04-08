@@ -60,7 +60,8 @@ def load_json(path: Path, default: Any) -> Any:
 	if not path.exists():
 		return default
 	try:
-		with path.open("r", encoding="utf-8") as f:
+		# Accept UTF-8 files with or without BOM.
+		with path.open("r", encoding="utf-8-sig") as f:
 			return json.load(f)
 	except Exception:
 		return default
@@ -341,6 +342,9 @@ CREATE TABLE IF NOT EXISTS matches (
   match_mode INTEGER,
 	event_title TEXT,
 	event_week INTEGER,
+	event_team_a TEXT,
+	event_team_b TEXT,
+	event_game TEXT,
 	start_time TEXT,
   created_at TEXT
 );
@@ -420,34 +424,49 @@ def db_connect_readonly(db_path: Path) -> sqlite3.Connection:
 	return conn
 
 
-def db_init(conn: sqlite3.Connection) -> None:
+def db_init(conn: sqlite3.Connection) -> bool:
+	"""Initialize DB schema and run migrations.
+
+	Returns True when a migration added columns that require broad backfill.
+	"""
 	conn.executescript(SCHEMA_SQL)
+	large_table_change = False
+
 	# Migrations: ensure new columns exist on old DBs
 	try:
 		cur = conn.execute("PRAGMA table_info(matches)")
-		cols = [r[1] for r in cur.fetchall()]
+		cols = {r[1] for r in cur.fetchall()}
 		if "start_time" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN start_time TEXT")
+			large_table_change = True
 		if "event_title" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_title TEXT")
+			large_table_change = True
 		if "event_week" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_week INTEGER")
+			large_table_change = True
+		if "event_team_a" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN event_team_a TEXT")
+			large_table_change = True
+		if "event_team_b" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN event_team_b TEXT")
+			large_table_change = True
+		if "event_game" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN event_game TEXT")
+			large_table_change = True
 		conn.commit()
 	except Exception:
 		pass
 	try:
 		cur = conn.execute("PRAGMA table_info(players)")
-		cols = [r[1] for r in cur.fetchall()]
+		cols = {r[1] for r in cur.fetchall()}
 		if "items" not in cols:
 			conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
-		if "self_healing" not in cols:
-			conn.execute("ALTER TABLE players ADD COLUMN self_healing INTEGER")
-		if "teammate_healing" not in cols:
-			conn.execute("ALTER TABLE players ADD COLUMN teammate_healing INTEGER")
 		conn.commit()
 	except Exception:
 		pass
 	conn.commit()
+	return large_table_change
 
 
 def upsert_user(conn: sqlite3.Connection, account_id: int, persona_name: Optional[str]) -> None:
@@ -463,6 +482,9 @@ def upsert_match(
 	mi: Dict[str, Any],
 	event_title: Optional[str] = None,
 	event_week: Optional[int] = None,
+	event_team_a: Optional[str] = None,
+	event_team_b: Optional[str] = None,
+	event_game: Optional[str] = None,
 ) -> None:
 	# Try to locate a start time from API payload with several fallback keys
 	st = (
@@ -474,9 +496,9 @@ def upsert_match(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -486,6 +508,9 @@ def upsert_match(
 			extract_int(mi.get("match_mode")),
 			event_title,
 			event_week,
+			event_team_a,
+			event_team_b,
+			event_game,
 			start_iso,
 			now_iso(),  # scraped time
 		),
@@ -765,19 +790,36 @@ async def adb_connect(db_path: Path) -> asqlite.Connection:
 	return conn
 
 
-async def db_init_async(conn: asqlite.Connection) -> None:
+async def db_init_async(conn: asqlite.Connection) -> bool:
+	"""Async schema init + migrations.
+
+	Returns True when a migration added columns that require broad backfill.
+	"""
 	await conn.executescript(SCHEMA_SQL)
+	large_table_change = False
 	try:
 		cur = await conn.execute("PRAGMA table_info(matches)")
 		rows = await cur.fetchall()
 		await cur.close()
-		cols = [r[1] for r in rows]
+		cols = {r[1] for r in rows}
 		if "start_time" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN start_time TEXT")
+			large_table_change = True
 		if "event_title" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_title TEXT")
+			large_table_change = True
 		if "event_week" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_week INTEGER")
+			large_table_change = True
+		if "event_team_a" not in cols:
+			await conn.execute("ALTER TABLE matches ADD COLUMN event_team_a TEXT")
+			large_table_change = True
+		if "event_team_b" not in cols:
+			await conn.execute("ALTER TABLE matches ADD COLUMN event_team_b TEXT")
+			large_table_change = True
+		if "event_game" not in cols:
+			await conn.execute("ALTER TABLE matches ADD COLUMN event_game TEXT")
+			large_table_change = True
 		await conn.commit()
 	except Exception:
 		pass
@@ -793,7 +835,21 @@ async def db_init_async(conn: asqlite.Connection) -> None:
 		await conn.commit()
 	except Exception:
 		pass
+
+	try:
+		cur = await conn.execute("PRAGMA table_info(players)")
+		rows = await cur.fetchall()
+		await cur.close()
+		cols = {r[1] for r in rows}
+		if "items" not in cols:
+			await conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
+			large_table_change = True
+		await conn.commit()
+	except Exception:
+		pass
+
 	await conn.commit()
+	return large_table_change
 
 
 async def upsert_user_async(conn: asqlite.Connection, account_id: int, persona_name: Optional[str]) -> None:
@@ -809,6 +865,9 @@ async def upsert_match_async(
 	mi: Dict[str, Any],
 	event_title: Optional[str] = None,
 	event_week: Optional[int] = None,
+	event_team_a: Optional[str] = None,
+	event_team_b: Optional[str] = None,
+	event_game: Optional[str] = None,
 ) -> None:
 	st = (
 		mi.get("start_time")
@@ -819,9 +878,9 @@ async def upsert_match_async(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	await conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -831,6 +890,9 @@ async def upsert_match_async(
 			extract_int(mi.get("match_mode")),
 			event_title,
 			event_week,
+			event_team_a,
+			event_team_b,
+			event_game,
 			start_iso,
 			now_iso(),
 		),
@@ -1072,11 +1134,33 @@ def mark_match_checked(status: Dict[str, Any], match_id: int, ok: bool, error: O
 def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any]]]:
 	"""Read match IDs and context from JSON.
 
-	Expected shape:
+	Supported shapes:
+	1) Single series at root:
 	{
 	  "title": "Night Shift",
 	  "weeks": [
-	    {"week": 31, "match_ids": [70457488, 70471960]}
+	    {"week": 31, "match_ids": [70457488, 70471960]},
+	    {
+	      "week": 32,
+	      "games": [
+	        {
+	          "team_a": "Abrahams",
+	          "team_b": "Lowkey",
+	          "matches": [
+	            {"game": 1, "match_id": 70457488},
+	            {"game": 2, "match_id": 70471960}
+	          ]
+	        }
+	      ]
+	    }
+	  ]
+	}
+
+	2) Multiple series:
+	{
+	  "series": [
+	    {"title": "Fight Night", "weeks": [...]},
+	    {"title": "Night Shift", "weeks": [...]} 
 	  ]
 	}
 
@@ -1089,42 +1173,115 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 	if not isinstance(payload, dict):
 		raise ValueError(f"Match IDs JSON must be an object: {path}")
 
-	groups = payload.get("weeks")
-	if not isinstance(groups, list):
-		groups = payload.get("events")
-	if not isinstance(groups, list):
-		raise ValueError("Match IDs JSON must contain a 'weeks' array")
-
 	ids: List[int] = []
 	context_by_id: Dict[int, Dict[str, Any]] = {}
-	root_title = payload.get("title")
-	root_title_s = str(root_title).strip() if isinstance(root_title, str) else None
-	if not root_title_s:
-		root_title_s = None
 
-	for group in groups:
-		if not isinstance(group, dict):
-			continue
-		group_ids = group.get("match_ids")
-		if not isinstance(group_ids, list):
-			continue
-		week = extract_int(group.get("week"))
-		group_title = group.get("title")
-		group_title_s = str(group_title).strip() if isinstance(group_title, str) else None
-		event_title = group_title_s or root_title_s
-		for value in group_ids:
-			try:
-				mid = int(value)
-				ids.append(mid)
-				# Keep first-seen context in case an ID appears multiple times.
-				if mid not in context_by_id:
-					context_by_id[mid] = {
-						"event_title": event_title,
-						"event_week": week,
-					}
-			except (TypeError, ValueError):
-				# Skip invalid placeholders such as "No Match".
+	def _clean_str(value: Any) -> Optional[str]:
+		if value is None:
+			return None
+		s = str(value).strip()
+		return s or None
+
+	root_title_s = _clean_str(payload.get("title"))
+
+	series_groups: List[Tuple[Optional[str], List[Any]]] = []
+	series_payload = payload.get("series")
+	if isinstance(series_payload, list):
+		for series_obj in series_payload:
+			if not isinstance(series_obj, dict):
 				continue
+			groups = series_obj.get("weeks")
+			if not isinstance(groups, list):
+				groups = series_obj.get("events")
+			if not isinstance(groups, list):
+				continue
+			series_groups.append((_clean_str(series_obj.get("title")), groups))
+
+	if not series_groups:
+		groups = payload.get("weeks")
+		if not isinstance(groups, list):
+			groups = payload.get("events")
+		if not isinstance(groups, list):
+			raise ValueError("Match IDs JSON must contain either 'series' or a root 'weeks' array")
+		series_groups.append((root_title_s, groups))
+
+	def _iter_game_records(series: Dict[str, Any]) -> Iterable[Tuple[Optional[str], Any]]:
+		"""Yield (game_label, match_id_value) tuples from a game/series object."""
+		nested_games = series.get("matches")
+		if not isinstance(nested_games, list):
+			nested_games = series.get("games")
+		if isinstance(nested_games, list):
+			for g in nested_games:
+				if isinstance(g, dict):
+					yield (
+						_clean_str(g.get("game") or g.get("game_label") or g.get("label") or g.get("name") or g.get("round")),
+						g.get("match_id") if "match_id" in g else g.get("id"),
+					)
+				else:
+					yield (None, g)
+			return
+
+		flat_ids = series.get("match_ids")
+		if isinstance(flat_ids, list):
+			for idx, value in enumerate(flat_ids, start=1):
+				yield (f"Game {idx}", value)
+			return
+
+		single = series.get("match_id") if isinstance(series, dict) else None
+		if single is not None:
+			yield (_clean_str(series.get("game") or series.get("game_label")), single)
+
+	for series_title, groups in series_groups:
+		for group in groups:
+			if not isinstance(group, dict):
+				continue
+			week = extract_int(group.get("week"))
+			group_title_s = _clean_str(group.get("title"))
+			event_title = series_title or group_title_s or root_title_s
+
+			# Backward-compatible support for the old flat week.match_ids format.
+			group_ids = group.get("match_ids")
+			if isinstance(group_ids, list):
+				for value in group_ids:
+					try:
+						mid = int(value)
+						ids.append(mid)
+						if mid not in context_by_id:
+							context_by_id[mid] = {
+								"event_title": event_title,
+								"event_week": week,
+								"event_team_a": None,
+								"event_team_b": None,
+								"event_game": None,
+							}
+					except (TypeError, ValueError):
+						continue
+
+			games = group.get("games")
+			if not isinstance(games, list):
+				continue
+
+			for series in games:
+				if not isinstance(series, dict):
+					continue
+				team_a = _clean_str(series.get("team_a") or series.get("team1") or series.get("left_team"))
+				team_b = _clean_str(series.get("team_b") or series.get("team2") or series.get("right_team"))
+				for game_label, value in _iter_game_records(series):
+					try:
+						mid = int(value)
+						ids.append(mid)
+						# Keep first-seen context in case an ID appears multiple times.
+						if mid not in context_by_id:
+							context_by_id[mid] = {
+								"event_title": event_title,
+								"event_week": week,
+								"event_team_a": team_a,
+								"event_team_b": team_b,
+								"event_game": game_label,
+							}
+					except (TypeError, ValueError):
+						# Skip invalid placeholders such as "No Match".
+						continue
 	return ids, context_by_id
 
 
@@ -1141,11 +1298,22 @@ def process_match_into_db(
 	steam_api_key: str,
 	event_title: Optional[str] = None,
 	event_week: Optional[int] = None,
+	event_team_a: Optional[str] = None,
+	event_team_b: Optional[str] = None,
+	event_game: Optional[str] = None,
 ) -> None:
 	match_info = fetch_match_metadata(match_id)
 
 	# Upsert match row
-	upsert_match(conn, match_info, event_title=event_title, event_week=event_week)
+	upsert_match(
+		conn,
+		match_info,
+		event_title=event_title,
+		event_week=event_week,
+		event_team_a=event_team_a,
+		event_team_b=event_team_b,
+		event_game=event_game,
+	)
 
 	# Resolve names for all players (cached + API as needed)
 	players = (match_info.get("players") or [])
@@ -1177,6 +1345,9 @@ async def process_match_into_db_async(
 	cache_lock: asyncio.Lock,
 	event_title: Optional[str] = None,
 	event_week: Optional[int] = None,
+	event_team_a: Optional[str] = None,
+	event_team_b: Optional[str] = None,
+	event_game: Optional[str] = None,
 ) -> None:
 	match_info = await asyncio.to_thread(fetch_match_metadata, match_id)
 
@@ -1190,7 +1361,15 @@ async def process_match_into_db_async(
 	winning_team = match_info.get("winning_team")
 
 	async with db_lock:
-		await upsert_match_async(conn, match_info, event_title=event_title, event_week=event_week)
+		await upsert_match_async(
+			conn,
+			match_info,
+			event_title=event_title,
+			event_week=event_week,
+			event_team_a=event_team_a,
+			event_team_b=event_team_b,
+			event_game=event_game,
+		)
 
 		for p in players:
 			await upsert_player_async(conn, match_id, p, winning_team, name_map)
@@ -1237,6 +1416,9 @@ async def run_match_ingest_async(
 					cache_lock,
 					event_title=ctx.get("event_title"),
 					event_week=ctx.get("event_week"),
+					event_team_a=ctx.get("event_team_a"),
+					event_team_b=ctx.get("event_team_b"),
+					event_game=ctx.get("event_game"),
 				)
 				async with cache_lock:
 					save_json(cache_path, cache)
@@ -1502,7 +1684,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 	cache = load_json(cache_path, default={})
 	if not isinstance(cache, dict):
 		cache = {}
-	force_recheck_all = parse_bool(args.recheckall)
+
+	# Always bring DB schema up to date before deciding what to process.
+	conn = db_connect(db_path)
+	try:
+		had_large_table_change = db_init(conn)
+	finally:
+		conn.close()
+
+	force_recheck_all = parse_bool(args.recheckall) or had_large_table_change
+	if had_large_table_change:
+		print("Detected a large table schema update. Forcing full match refetch for this run.")
 
 	to_process: List[int] = []
 	seen: set[int] = set()
