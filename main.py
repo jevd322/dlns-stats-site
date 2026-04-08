@@ -440,6 +440,10 @@ def db_init(conn: sqlite3.Connection) -> None:
 		cols = [r[1] for r in cur.fetchall()]
 		if "items" not in cols:
 			conn.execute("ALTER TABLE players ADD COLUMN items TEXT")
+		if "self_healing" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN self_healing INTEGER")
+		if "teammate_healing" not in cols:
+			conn.execute("ALTER TABLE players ADD COLUMN teammate_healing INTEGER")
 		conn.commit()
 	except Exception:
 		pass
@@ -513,6 +517,8 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	player_damage = extract_int(safe_get_stat(player, "player_damage"))
 	obj_damage = extract_int(safe_get_stat(player, "boss_damage"))  # proxy for objective damage
 	player_healing = extract_int(safe_get_stat(player, "player_healing"))
+	self_healing = extract_int(safe_get_stat(player, "self_healing"))
+	teammate_healing = extract_int(safe_get_stat(player, "teammate_healing"))
 
 	# Shots hit/missed: attempt to derive from snapshots if present
 	shots_hit, shots_missed = derive_shots(player)
@@ -526,28 +532,32 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	if team is not None and winning_team is not None:
 		result = "Win" if int(team) == int(winning_team) else "Loss"
 
-	# Items: store only unsold items as JSON list of item_ids
+	# Items: store only unsold items as JSON list of item_ids, deduplicated to avoid
+	# upgrade components appearing multiple times (base components stay with sold_time_s=0
+	# even after being consumed into an upgrade).
 	raw_items = player.get("items") or []
-	unsold_item_ids = [
-		i["item_id"] for i in raw_items
-		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None
-	]
+	seen_item_ids: set = set()
+	unsold_item_ids = []
+	for i in raw_items:
+		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None:
+			iid = i["item_id"]
+			if iid not in seen_item_ids:
+				seen_item_ids.add(iid)
+				unsold_item_ids.append(iid)
 	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
-
-	# Ensure user row exists and is updated
 	if account_id is not None:
 		upsert_user(conn, account_id, name_by_id.get(account_id, "Unknown"))
 
 	conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, pings_count, result, items) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
 		),
 		(
 			match_id,
@@ -568,6 +578,8 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 			player_damage,
 			obj_damage,
 			player_healing,
+			self_healing,
+			teammate_healing,
 			pings_count,
 			result,
 			items_json,
@@ -575,7 +587,7 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	)
 
 
-def derive_shots(player: Dict[str, Any]) -> Tuple[Optional[int], Optional[int]]:
+def derive_shots
 	"""Attempt to find and aggregate shots hit/missed across available data.
 
 	We look for common keys in the player's last stats snapshot and across all snapshots if available.
@@ -769,6 +781,18 @@ async def db_init_async(conn: asqlite.Connection) -> None:
 		await conn.commit()
 	except Exception:
 		pass
+	try:
+		cur = await conn.execute("PRAGMA table_info(players)")
+		rows = await cur.fetchall()
+		await cur.close()
+		cols = [r[1] for r in rows]
+		if "self_healing" not in cols:
+			await conn.execute("ALTER TABLE players ADD COLUMN self_healing INTEGER")
+		if "teammate_healing" not in cols:
+			await conn.execute("ALTER TABLE players ADD COLUMN teammate_healing INTEGER")
+		await conn.commit()
+	except Exception:
+		pass
 	await conn.commit()
 
 
@@ -841,6 +865,8 @@ async def upsert_player_async(
 	player_damage = extract_int(safe_get_stat(player, "player_damage"))
 	obj_damage = extract_int(safe_get_stat(player, "boss_damage"))
 	player_healing = extract_int(safe_get_stat(player, "player_healing"))
+	self_healing = extract_int(safe_get_stat(player, "self_healing"))
+	teammate_healing = extract_int(safe_get_stat(player, "teammate_healing"))
 	shots_hit, shots_missed = derive_shots(player)
 	pings = player.get("pings") or []
 	pings_count = len(pings) if isinstance(pings, list) else None
@@ -850,10 +876,20 @@ async def upsert_player_async(
 		result = "Win" if int(team) == int(winning_team) else "Loss"
 
 	raw_items = player.get("items") or []
-	unsold_item_ids = [
-		i["item_id"] for i in raw_items
+	unsold = [
+		i for i in raw_items
 		if isinstance(i, dict) and i.get("sold_time_s", 0) == 0 and i.get("item_id") is not None
 	]
+	unsold.sort(key=lambda i: i.get("game_time_s") or 0, reverse=True)
+	seen_item_ids: set = set()
+	unsold_item_ids = []
+	for i in unsold:
+		iid = i["item_id"]
+		if iid not in seen_item_ids:
+			seen_item_ids.add(iid)
+			unsold_item_ids.append(iid)
+			if len(unsold_item_ids) == 12:
+				break
 	items_json = json.dumps(unsold_item_ids) if unsold_item_ids else None
 
 	if account_id is not None:
@@ -861,14 +897,14 @@ async def upsert_player_async(
 
 	await conn.execute(
 		(
-			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, pings_count, result, items) "
-			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+			"INSERT INTO players(match_id, account_id, player_slot, team, hero_id, level, kills, deaths, assists, net_worth, last_hits, denies, creep_kills, shots_hit, shots_missed, player_damage, obj_damage, player_healing, self_healing, teammate_healing, pings_count, result, items) "
+			"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
 			"ON CONFLICT(match_id, account_id) DO UPDATE SET "
 			"player_slot=excluded.player_slot, team=excluded.team, hero_id=excluded.hero_id, level=excluded.level, "
 			"kills=excluded.kills, deaths=excluded.deaths, assists=excluded.assists, net_worth=excluded.net_worth, "
 			"last_hits=excluded.last_hits, denies=excluded.denies, creep_kills=excluded.creep_kills, "
 			"shots_hit=excluded.shots_hit, shots_missed=excluded.shots_missed, player_damage=excluded.player_damage, "
-			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
+			"obj_damage=excluded.obj_damage, player_healing=excluded.player_healing, self_healing=excluded.self_healing, teammate_healing=excluded.teammate_healing, pings_count=excluded.pings_count, result=excluded.result, items=excluded.items"
 		),
 		(
 			match_id,
@@ -889,6 +925,8 @@ async def upsert_player_async(
 			player_damage,
 			obj_damage,
 			player_healing,
+			self_healing,
+			teammate_healing,
 			pings_count,
 			result,
 			items_json,

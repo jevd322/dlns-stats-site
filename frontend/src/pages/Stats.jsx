@@ -130,7 +130,7 @@ function Stats() {
         ))}
       </div>
 
-      <div className="border-b-3 border-gray-700">
+      <div className="">
         <h1 className="text-xl text-white font-bold mb-4 uppercase">
           Match Trend
         </h1>
@@ -307,9 +307,9 @@ function Stats() {
         )}
       </div>
 
-      <div>
-        <h1 className="text-xl text-white font-bold my-8 uppercase">Player Records</h1>
-        <h2 className="text-lg text-white font-semibold my-4">Highest</h2>
+      <div className="">
+        <h1 className="text-xl text-white font-bold mb-8 mt-16 uppercase">Player Records</h1>
+        <h2 className="text-xl text-white font-bold my-4">Highest</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
             { label: 'Most Kills',      key: 'kills',   fmt: (v) => v },
@@ -403,9 +403,8 @@ function Stats() {
       </div>
 
       {/* Player Averages */}
-      <div>
-        <h1 className="text-xl text-white font-bold my-8 uppercase">Player Averages</h1>
-        <p className="text-xs text-gray-500 mb-4 -mt-6">Minimum 5 games played</p>
+      <div className="mt-8">
+        <h1 className="text-xl text-white font-bold my-4">Averages</h1>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
             { label: 'Avg Kills',      key: 'kills',      fmt: (v) => v?.toFixed(1) },
