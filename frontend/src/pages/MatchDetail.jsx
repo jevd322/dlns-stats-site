@@ -98,7 +98,24 @@ function MatchDetail() {
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const ordinal = (d) => {
+      if (d >= 11 && d <= 13) return "th";
+      switch (d % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+    };
+    const month = date.toLocaleString("en-GB", { month: "long" });
+    const year = date.getFullYear();
+    const time = date.toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return `${month} ${day}${ordinal(day)} ${year} | ${time}`;
+  };
+
+  const formatK = (value) => {
+    const n = Number(value) || 0;
+    if (n >= 1000) {
+      return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+    }
+    return n.toString();
   };
 
   if (loading) {
@@ -122,6 +139,21 @@ function MatchDetail() {
   // Separate players by team
   const amberPlayers = players.filter((p) => p.team === 0);
   const sapphirePlayers = players.filter((p) => p.team === 1);
+
+  // Derive winning team from player results (each player has result: "Win"|"Loss" and team: 0|1)
+  const winnerPlayer = players.find((p) => p.result === "Win");
+  const winningTeam = winnerPlayer != null ? winnerPlayer.team : null;
+
+  // Per-column maximums across all players (for highlight)
+  const maxOf = (field) => Math.max(0, ...players.map((p) => p[field] || 0));
+  const maxKills    = maxOf("kills");
+  const maxAssists  = maxOf("assists");
+  const maxNetWorth = maxOf("net_worth");
+  const maxPlayerDmg = maxOf("player_damage");
+  const maxObjDmg   = maxOf("obj_damage");
+  const maxHealing  = maxOf("player_healing");
+
+  const isMax = (val, max) => max > 0 && (val || 0) === max;
 
   return (
     <div className="w-full p-8">
@@ -152,6 +184,12 @@ function MatchDetail() {
       </div>
 
       <h1 className="text-gray-300 text-3xl font-bold mb-2">Match {matchId}</h1>
+      {adjacentMatches.event_title && (
+        <p className="text-gray-300 text-lg font-semibold mb-1">
+          {adjacentMatches.event_title}
+          {adjacentMatches.event_week != null && ` #${adjacentMatches.event_week}`}
+        </p>
+      )}
       {adjacentMatches.start_time && (
         <p className="text-gray-500 mb-6">
           {formatDate(adjacentMatches.start_time)}
@@ -161,25 +199,31 @@ function MatchDetail() {
       {/* Team Amber */}
       <div className="mb-6">
         <div className="bg-panel text-gray-300 shadow p-6 ">
+          <div className="flex items-center mb-2">
+            <img
+              src="/static/images/teamNames/team1_patron_logo_psd.png"
+              alt="Team Amber"
+              className="h-12 m-2"
+              style={{
+                filter:
+                  "brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%)",
+              }}
+            />
+            {winningTeam === 0 && (
+              <span className="ml-3 px-2 py-1 text-xs font-bold bg-amber-500 text-black rounded-full uppercase tracking-wide">
+                Winner
+              </span>
+            )}
+          </div>
           <table className="w-full table-auto rounded-lg ">
             <thead>
-              <tr>
-                <img
-                  src="/static/images/teamNames/team1_patron_logo_psd.png"
-                  alt="Team Amber"
-                  className="h-12 m-2"
-                  style={{
-                    filter:
-                      "brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%)",
-                  }}
-                />
-              </tr>
               <tr className="border-b">
                 <th className="text-left p-3 w-50">Player</th>
                 <th className="text-left p-3 w-30">K/D/A</th>
                 <th className="text-left p-3 w-25">Souls</th>
                 <th className="text-left p-3 w-30">Player DMG</th>
                 <th className="text-left p-3 w-25">Obj DMG</th>
+                <th className="text-left p-3 w-25">Healing</th>
                 <th className="text-left p-3">Items</th>
               </tr>
             </thead>
@@ -221,16 +265,19 @@ function MatchDetail() {
                     )}
                   </td>
                   <td className="p-3">
-                    {player.kills || 0} / {player.deaths || 0} /{" "}
-                    {player.assists || 0}
+                    <span className={`font-semibold ${isMax(player.kills, maxKills) ? "text-yellow-300" : "text-green-400"}`}>{player.kills || 0}</span>
+                    <span className="text-gray-400"> / </span>
+                    <span className="text-red-400">{player.deaths || 0}</span>
+                    <span className="text-gray-400"> / </span>
+                    <span className={`${isMax(player.assists, maxAssists) ? "text-yellow-300 font-semibold" : "text-orange-400"}`}>{player.assists || 0}</span>
                   </td>
-                  <td className="p-3">{player.net_worth || 0}</td>
-                  <td className="p-3">
-                    {(player.player_damage || 0).toLocaleString()}
-                  </td>
-                  <td className="p-3">
-                    {(player.obj_damage || 0).toLocaleString()}
-                  </td>
+                  <td className="p-3"><span className={isMax(player.net_worth, maxNetWorth) ? "text-yellow-300 font-semibold" : ""} title={(player.net_worth || 0).toLocaleString()}>{formatK(player.net_worth)}</span></td>
+                  <td className="p-3"><span className={isMax(player.player_damage, maxPlayerDmg) ? "text-yellow-300 font-semibold" : ""} title={(player.player_damage || 0).toLocaleString()}>{formatK(player.player_damage)}</span></td>
+                  <td className="p-3"><span className={isMax(player.obj_damage, maxObjDmg) ? "text-yellow-300 font-semibold" : ""} title={(player.obj_damage || 0).toLocaleString()}>{formatK(player.obj_damage)}</span></td>
+                  <td className="p-3"><span
+                    className={isMax(player.player_healing, maxHealing) ? "text-yellow-300 font-semibold" : ""}
+                    title={`Total: ${(player.player_healing || 0).toLocaleString()}${player.self_healing != null ? ` | Self: ${(player.self_healing || 0).toLocaleString()}` : ""}${player.teammate_healing != null ? ` | Teammate: ${(player.teammate_healing || 0).toLocaleString()}` : ""}`}
+                  >{formatK(player.player_healing)}</span></td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-1">
                       {(itemsByPlayer[String(player.account_id)] || []).map(
@@ -242,6 +289,10 @@ function MatchDetail() {
                               src={src}
                               alt={item.name}
                               title={item.name}
+                              width={28}
+                              height={28}
+                              loading="lazy"
+                              decoding="async"
                               className="w-7 h-7 rounded object-contain bg-slate-700/50"
                               onError={(e) => {
                                 e.target.style.display = "none";
@@ -261,25 +312,31 @@ function MatchDetail() {
 
       {/* Team Sapphire */}
         <div className="bg-panel text-gray-300 shadow rounded-lg p-6">
+          <div className="flex items-center mb-2">
+            <img
+              src="/static/images/teamNames/team2_patron_logo_psd.png"
+              alt="Team Sapphire"
+              className="h-12"
+              style={{
+                filter:
+                  "brightness(0) saturate(100%) invert(24%) sepia(96%) saturate(1698%) hue-rotate(203deg) brightness(94%) contrast(115%)",
+              }}
+            />
+            {winningTeam === 1 && (
+              <span className="ml-3 px-2 py-1 text-xs font-bold bg-blue-500 text-white rounded-full uppercase tracking-wide">
+                Winner
+              </span>
+            )}
+          </div>
           <table className="w-full table-auto">
             <thead>
-              <tr className="">
-                <img
-                  src="/static/images/teamNames/team2_patron_logo_psd.png"
-                  alt="Team Sapphire"
-                  className="h-12"
-                  style={{
-                    filter:
-                      "brightness(0) saturate(100%) invert(24%) sepia(96%) saturate(1698%) hue-rotate(203deg) brightness(94%) contrast(115%)",
-                  }}
-                />
-              </tr>
               <tr className="border-b">
                 <th className="text-left p-3 w-50">Player</th>
                 <th className="text-left p-3 w-30">K/D/A</th>
                 <th className="text-left p-3 w-25">Souls</th>
                 <th className="text-left p-3 w-30">Player DMG</th>
                 <th className="text-left p-3 w-25">Obj DMG</th>
+                <th className="text-left p-3 w-25">Healing</th>
                 <th className="text-left p-3">Items</th>
               </tr>
             </thead>
@@ -322,16 +379,19 @@ function MatchDetail() {
                   </td>
 
                   <td className="p-3">
-                    {player.kills || 0} / {player.deaths || 0} /{" "}
-                    {player.assists || 0}
+                    <span className={`font-semibold ${isMax(player.kills, maxKills) ? "text-yellow-300" : "text-green-400"}`}>{player.kills || 0}</span>
+                    <span className="text-gray-400"> / </span>
+                    <span className="text-red-400">{player.deaths || 0}</span>
+                    <span className="text-gray-400"> / </span>
+                    <span className={`${isMax(player.assists, maxAssists) ? "text-yellow-300 font-semibold" : "text-orange-400"}`}>{player.assists || 0}</span>
                   </td>
-                  <td className="p-3">{player.net_worth || 0}</td>
-                  <td className="p-3">
-                    {(player.player_damage || 0).toLocaleString()}
-                  </td>
-                  <td className="p-3">
-                    {(player.obj_damage || 0).toLocaleString()}
-                  </td>
+                  <td className="p-3"><span className={isMax(player.net_worth, maxNetWorth) ? "text-yellow-300 font-semibold" : ""} title={(player.net_worth || 0).toLocaleString()}>{formatK(player.net_worth)}</span></td>
+                  <td className="p-3"><span className={isMax(player.player_damage, maxPlayerDmg) ? "text-yellow-300 font-semibold" : ""} title={(player.player_damage || 0).toLocaleString()}>{formatK(player.player_damage)}</span></td>
+                  <td className="p-3"><span className={isMax(player.obj_damage, maxObjDmg) ? "text-yellow-300 font-semibold" : ""} title={(player.obj_damage || 0).toLocaleString()}>{formatK(player.obj_damage)}</span></td>
+                  <td className="p-3"><span
+                    className={isMax(player.player_healing, maxHealing) ? "text-yellow-300 font-semibold" : ""}
+                    title={`Total: ${(player.player_healing || 0).toLocaleString()}${player.self_healing != null ? ` | Self: ${(player.self_healing || 0).toLocaleString()}` : ""}${player.teammate_healing != null ? ` | Teammate: ${(player.teammate_healing || 0).toLocaleString()}` : ""}`}
+                  >{formatK(player.player_healing)}</span></td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-1">
                       {(itemsByPlayer[String(player.account_id)] || []).map(
@@ -343,6 +403,10 @@ function MatchDetail() {
                               src={src}
                               alt={item.name}
                               title={item.name}
+                              width={28}
+                              height={28}
+                              loading="lazy"
+                              decoding="async"
                               className="w-7 h-7 rounded object-contain bg-slate-700/50"
                               onError={(e) => {
                                 e.target.style.display = "none";
