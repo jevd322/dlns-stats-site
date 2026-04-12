@@ -714,10 +714,6 @@ def create_app() -> Flask:
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(port=5050, debug=False)
-
-if __name__ == "__main__":
-    app = create_app()
 
     # Build a list of files for the reloader to watch. The default Flask
     # reloader only watches the main module; passing extra_files ensures the

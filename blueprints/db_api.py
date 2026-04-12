@@ -437,7 +437,7 @@ def latest_matches_paged():  # type: ignore
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
-            "SELECT created_at FROM matches WHERE match_id = ?",
+            "SELECT start_time, winning_team, event_title, event_week FROM matches WHERE match_id = ?",
             (match_id,),
         ).fetchone()
         prev_row = conn.execute(
@@ -454,6 +454,9 @@ def match_adjacent(match_id: int):  # type: ignore
         ).fetchone()
     return jsonify({
         "start_time": cur_row[0] if cur_row else None,
+        "winning_team": cur_row[1] if cur_row else None,
+        "event_title": cur_row[2] if cur_row else None,
+        "event_week": cur_row[3] if cur_row else None,
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })
@@ -475,6 +478,7 @@ def match_players(match_id: int):  # type: ignore
         return jsonify({"players": data})
 
 @bp.get("/matches/<int:match_id>/items")
+@cache.cached(timeout=86400)
 def match_items(match_id: int):  # type: ignore
     # Fetch item catalog (cached 10 min).
     # If the cache is cold, do a short-timeout fetch so we don't block Flask's
@@ -521,10 +525,19 @@ def match_items(match_id: int):  # type: ignore
         except Exception:
             continue
         enriched = []
+        seen_ids: set = set()
         for iid in item_ids:
-            meta = item_lookup.get(int(iid))
+            iid_int = int(iid)
+            if iid_int in seen_ids:
+                continue
+            seen_ids.add(iid_int)
+            meta = item_lookup.get(iid_int)
             if meta and meta.get("name"):
                 enriched.append(meta)
+        # Sort higher-tier items first, then cap at 12 to handle existing data
+        # where sold/consumed items may have been stored with sold_time_s=0.
+        enriched.sort(key=lambda x: x.get("item_tier") or 0, reverse=True)
+        enriched = enriched[:12]
         if enriched:
             result[str(account_id)] = enriched
 
