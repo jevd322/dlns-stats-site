@@ -612,7 +612,8 @@ def upsert_player(conn: sqlite3.Connection, match_id: int, player: Dict[str, Any
 	)
 
 
-def derive_shots
+
+def derive_shots(player):
 	"""Attempt to find and aggregate shots hit/missed across available data.
 
 	We look for common keys in the player's last stats snapshot and across all snapshots if available.
