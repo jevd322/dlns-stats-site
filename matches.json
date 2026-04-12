@@ -564,6 +564,41 @@
       "title": "Night Shift",
       "weeks": [
         {
+          "week": 33,
+          "games": [
+            {
+              "team_a": "Abrahams",
+              "team_b": "Leviathan",
+              "matches": [
+                { "game": "Game 1", "match_id": 74148164 }
+              ]
+            },
+            {
+              "team_a": "Lowkey W",
+              "team_b": "Abrahams",
+              "matches": [
+                { "game": "Game 1", "match_id": 74166946 },
+                { "game": "Game 2", "match_id": 74178339 }
+              ]
+            },
+            {
+              "team_a": "Floormen",
+              "team_b": "FPS Lounge",
+              "matches": [
+                { "game": "Game 1", "match_id": 74191976 }
+              ]
+            },
+            {
+              "team_a": "Melee Creeps",
+              "team_b": "Floormen",
+              "matches": [
+                { "game": "Game 1", "match_id": 74204633 },
+                { "game": "Game 2", "match_id": 74217659 }
+              ]
+            }
+          ]
+        },
+        {
           "week": 32,
           "games": [
             {
