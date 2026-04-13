@@ -710,17 +710,6 @@ def create_app() -> Flask:
         resp.headers["Cache-Control"] = "public, max-age=300"  # Cache for 5 minutes
         return resp
 
-    @app.errorhandler(404)
-    def not_found(error):  # type: ignore
-        """Handle 404 errors"""
-        return render_template(
-            "404.html",
-            meta_title="Page Not Found • DLNS Stats",
-            meta_desc="The page you're looking for doesn't exist.",
-            meta_image=_og_image_abs(),
-            meta_url=_abs(request.path),
-        ), 404
-
     return app
 
 if __name__ == "__main__":
