@@ -13,6 +13,7 @@ import { SoundLibrary } from './pages/sounds.jsx';
 import { SoundsDev } from './pages/dev.jsx';
 import { VoHub } from './pages/vo.jsx';
 import { VoAdmin } from './pages/vo_admin.jsx';
+import { MatchSubmission } from './pages/MatchSubmission.jsx';
 import DLNS_Header from './components/DLNS_Header';
 import './App.css';
 
@@ -29,6 +30,7 @@ function Navigation() {
     { path: '/sounds-dev', label: 'Sounds Dev' },
     { path: '/vo', label: 'VO Hub' },
     { path: '/vo-admin', label: 'VO Admin' },
+    { path: '/match-submit', label: 'Submit Match' },
   ];
   
   return (
@@ -78,6 +80,7 @@ function App() {
             <Route path="/sounds-dev" element={<SoundsDev />} />
             <Route path="/vo" element={<VoHub />} />
             <Route path="/vo-admin" element={<VoAdmin />} />
+            <Route path="/match-submit" element={<MatchSubmission />} />
           </Routes>
         </main>
         

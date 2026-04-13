@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col items-center justify-center px-4">
+    <div class="text-center">
+        <h1 class="text-6xl font-bold text-purple-600 mb-4">404</h1>
+        <h2 class="text-3xl font-semibold text-gray-800 mb-2">Page Not Found</h2>
+        <p class="text-gray-600 mb-8 max-w-md">
+            The page you're looking for doesn't exist. It might have been moved or deleted.
+        </p>
+        
+        <div class="space-y-4">
+            <a href="/" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors">
+                Return to Home
+            </a>
+            <p class="text-gray-500 text-sm">
+                <a href="/help" class="text-purple-600 hover:text-purple-700">Need help?</a> • 
+                <a href="/community" class="text-purple-600 hover:text-purple-700">Community</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
