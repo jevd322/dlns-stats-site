@@ -79,18 +79,18 @@
       <div style="display: grid; gap: 0.5rem;">
         <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
           <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
-          <code style="flex: 1; background: none; border: none; padding: 0;">/api/matches</code>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/db/matches/latest</code>
           <span class="text-small text-muted">Latest matches</span>
         </div>
         <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
           <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
-          <code style="flex: 1; background: none; border: none; padding: 0;">/api/users/{id}</code>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/db/users/{account_id}</code>
           <span class="text-small text-muted">User details</span>
         </div>
         <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
           <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
-          <code style="flex: 1; background: none; border: none; padding: 0;">/api/matches/{id}</code>
-          <span class="text-small text-muted">Match details</span>
+          <code style="flex: 1; background: none; border: none; padding: 0;">/db/matches/{match_id}/players</code>
+          <span class="text-small text-muted">Match player rows</span>
         </div>
         <div style="display: flex; align-items: center; padding: 0.5rem; background: color-mix(in oklab, var(--pico-muted-border-color) 8%, transparent); border-radius: 6px;">
           <span class="badge neutral" style="margin-right: 0.75rem; font-family: monospace; font-size: 0.75rem;">GET</span>
@@ -104,12 +104,17 @@
       <h4 style="margin: 0 0 0.75rem 0; color: var(--pico-primary);">Response Format</h4>
       <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
         <pre style="margin: 0; background: none; padding: 0; border: none;"><code>{
-  "data": [ ... ],
-  "meta": {
-    "total": 100,
-    "page": 1,
-    "limit": 20
-  }
+  "matches": [
+    {
+      "match_id": 123456,
+      "duration_s": 1842,
+      "winning_team": 0
+    }
+  ],
+  "page": 1,
+  "per_page": 20,
+  "total": 100,
+  "total_pages": 5
 }</code></pre>
       </div>
     </div>
@@ -128,7 +133,7 @@
     <div>
       <h4 style="margin: 0 0 0.5rem 0;">JavaScript (Fetch)</h4>
       <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
-        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>fetch('{{ request.url_root.rstrip('/') }}/api/matches?limit=10')
+        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>fetch('{{ request.url_root.rstrip('/') }}/db/matches/latest/paged?page=1&amp;per_page=10')
   .then(response => response.json())
   .then(data => console.log(data));</code></pre>
       </div>
@@ -139,7 +144,7 @@
       <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
         <pre style="margin: 0; background: none; padding: 0; border: none;"><code>import requests
 
-response = requests.get('{{ request.url_root.rstrip('/') }}/api/matches')
+response = requests.get('{{ request.url_root.rstrip('/') }}/db/users/123456789/stats')
 data = response.json()
 print(data)</code></pre>
       </div>
@@ -148,7 +153,7 @@ print(data)</code></pre>
     <div>
       <h4 style="margin: 0 0 0.5rem 0;">cURL</h4>
       <div style="background: color-mix(in oklab, var(--pico-muted-border-color) 15%, transparent); padding: 1rem; border-radius: 8px; overflow-x: auto;">
-        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>curl -X GET "{{ request.url_root.rstrip('/') }}/api/matches?limit=5" \
+        <pre style="margin: 0; background: none; padding: 0; border: none;"><code>curl -X GET "{{ request.url_root.rstrip('/') }}/db/search/suggest?q=Jones" \
   -H "Accept: application/json"</code></pre>
       </div>
     </div>
