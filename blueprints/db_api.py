@@ -326,7 +326,7 @@ def latest_matches():  # type: ignore
     limit = int(current_app.config.get("API_LATEST_LIMIT", 50))
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, start_time, created_at "
+            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at "
             "FROM matches ORDER BY created_at DESC LIMIT ?",
             (limit,),
         )
@@ -396,7 +396,7 @@ def latest_matches_paged():  # type: ignore
         ccur = conn.execute(f"SELECT COUNT(DISTINCT m.match_id) {sql_base}{joins}{where}", tuple(params))
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.start_time, m.created_at {sql_base}{joins}{where} "
+            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.start_time, m.created_at {sql_base}{joins}{where} "
             f"ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
@@ -437,7 +437,7 @@ def latest_matches_paged():  # type: ignore
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
-            "SELECT start_time, winning_team, event_title, event_week FROM matches WHERE match_id = ?",
+            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game FROM matches WHERE match_id = ?",
             (match_id,),
         ).fetchone()
         prev_row = conn.execute(
@@ -457,6 +457,9 @@ def match_adjacent(match_id: int):  # type: ignore
         "winning_team": cur_row[1] if cur_row else None,
         "event_title": cur_row[2] if cur_row else None,
         "event_week": cur_row[3] if cur_row else None,
+        "event_team_a": cur_row[4] if cur_row else None,
+        "event_team_b": cur_row[5] if cur_row else None,
+        "event_game": cur_row[6] if cur_row else None,
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })
@@ -958,3 +961,67 @@ def get_players():
         )
         players = _rows_to_dicts(cur)
         return jsonify({"players": players})
+
+
+@bp.get("/series/<int:match_id>")
+@cache.cached(timeout=120)
+def series_detail(match_id: int):
+    """Return all matches in the same series as match_id (same team_a, team_b, event_title, event_week)."""
+    with get_ro_conn() as conn:
+        ref = conn.execute(
+            "SELECT event_team_a, event_team_b, event_title, event_week FROM matches WHERE match_id = ?",
+            (match_id,),
+        ).fetchone()
+        if not ref:
+            return jsonify({"error": "Match not found"}), 404
+
+        event_team_a, event_team_b, event_title, event_week = ref
+        if not event_team_a or not event_team_b:
+            return jsonify({"error": "No series data for this match"}), 404
+
+        # All matches in the series
+        cur = conn.execute(
+            """
+            SELECT match_id, event_game, event_team_a, event_team_b, event_team_a_ingame_side,
+                   winning_team, duration_s, start_time
+            FROM matches
+            WHERE event_team_a = ? AND event_team_b = ?
+              AND event_title = ? AND event_week = ?
+            ORDER BY event_game ASC
+            """,
+            (event_team_a, event_team_b, event_title, event_week),
+        )
+        matches = _rows_to_dicts(cur)
+
+        # Fetch players for all matches
+        match_ids = [m["match_id"] for m in matches]
+        players_by_match: dict = {}
+        if match_ids:
+            placeholders = ",".join("?" * len(match_ids))
+            pcur = conn.execute(
+                f"""
+                SELECT p.match_id, p.team, p.hero_id, p.account_id,
+                       p.kills, p.deaths, p.assists, p.result,
+                       u.persona_name
+                FROM players p
+                LEFT JOIN users u ON u.account_id = p.account_id
+                WHERE p.match_id IN ({placeholders})
+                ORDER BY p.team, p.player_slot
+                """,
+                tuple(match_ids),
+            )
+            for row in _rows_to_dicts(pcur):
+                row["hero_name"] = get_hero_name(row["hero_id"]) if row.get("hero_id") else None
+                mid = row["match_id"]
+                players_by_match.setdefault(mid, []).append(row)
+
+        for m in matches:
+            m["players"] = players_by_match.get(m["match_id"], [])
+
+    return jsonify({
+        "event_title": event_title,
+        "event_week": event_week,
+        "event_team_a": event_team_a,
+        "event_team_b": event_team_b,
+        "matches": matches,
+    })

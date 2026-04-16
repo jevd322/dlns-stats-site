@@ -15,6 +15,12 @@ def match_detail(match_id):
     return render_template('react.html', page='match_detail')
 
 
+@react_stats_bp.get('/series/<int:match_id>')
+def series_detail(match_id):
+    """Serve the React series detail page."""
+    return render_template('react.html', page='match_detail')
+
+
 @react_stats_bp.get('/players')
 def players_list():
     """Serve the React players list page."""

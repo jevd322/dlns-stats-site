@@ -345,6 +345,7 @@ CREATE TABLE IF NOT EXISTS matches (
 	event_team_a TEXT,
 	event_team_b TEXT,
 	event_game TEXT,
+	event_team_a_ingame_side INTEGER,
 	start_time TEXT,
   created_at TEXT
 );
@@ -454,6 +455,8 @@ def db_init(conn: sqlite3.Connection) -> bool:
 		if "event_game" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_game TEXT")
 			large_table_change = True
+		if "event_team_a_ingame_side" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN event_team_a_ingame_side INTEGER")
 		conn.commit()
 	except Exception:
 		pass
@@ -485,6 +488,7 @@ def upsert_match(
 	event_team_a: Optional[str] = None,
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
+	event_team_a_ingame_side: Optional[int] = None,
 ) -> None:
 	# Try to locate a start time from API payload with several fallback keys
 	st = (
@@ -496,9 +500,9 @@ def upsert_match(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -511,6 +515,7 @@ def upsert_match(
 			event_team_a,
 			event_team_b,
 			event_game,
+			event_team_a_ingame_side,
 			start_iso,
 			now_iso(),  # scraped time
 		),
@@ -821,6 +826,8 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 		if "event_game" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_game TEXT")
 			large_table_change = True
+		if "event_team_a_ingame_side" not in cols:
+			await conn.execute("ALTER TABLE matches ADD COLUMN event_team_a_ingame_side INTEGER")
 		await conn.commit()
 	except Exception:
 		pass
@@ -869,6 +876,7 @@ async def upsert_match_async(
 	event_team_a: Optional[str] = None,
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
+	event_team_a_ingame_side: Optional[int] = None,
 ) -> None:
 	st = (
 		mi.get("start_time")
@@ -879,9 +887,9 @@ async def upsert_match_async(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	await conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -894,6 +902,7 @@ async def upsert_match_async(
 			event_team_a,
 			event_team_b,
 			event_game,
+			event_team_a_ingame_side,
 			start_iso,
 			now_iso(),
 		),
@@ -1273,12 +1282,25 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 						ids.append(mid)
 						# Keep first-seen context in case an ID appears multiple times.
 						if mid not in context_by_id:
+							# team_a_side: 0 = team_a played Amber, 1 = team_a played Sapphire
+							# Can be set per-game on the match entry or per-series on the series object
+							team_a_side: Optional[int] = None
+							nested = series.get("matches") or series.get("games")
+							if isinstance(nested, list):
+								for g in nested:
+									if isinstance(g, dict) and (g.get("match_id") or g.get("id")) == mid:
+										if "team_a_side" in g:
+											team_a_side = extract_int(g["team_a_side"])
+										break
+							if team_a_side is None and "team_a_side" in series:
+								team_a_side = extract_int(series["team_a_side"])
 							context_by_id[mid] = {
 								"event_title": event_title,
 								"event_week": week,
 								"event_team_a": team_a,
 								"event_team_b": team_b,
 								"event_game": game_label,
+								"event_team_a_ingame_side": team_a_side,
 							}
 					except (TypeError, ValueError):
 						# Skip invalid placeholders such as "No Match".
@@ -1302,6 +1324,7 @@ def process_match_into_db(
 	event_team_a: Optional[str] = None,
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
+	event_team_a_ingame_side: Optional[int] = None,
 ) -> None:
 	match_info = fetch_match_metadata(match_id)
 
@@ -1314,6 +1337,7 @@ def process_match_into_db(
 		event_team_a=event_team_a,
 		event_team_b=event_team_b,
 		event_game=event_game,
+		event_team_a_ingame_side=event_team_a_ingame_side,
 	)
 
 	# Resolve names for all players (cached + API as needed)
@@ -1349,6 +1373,7 @@ async def process_match_into_db_async(
 	event_team_a: Optional[str] = None,
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
+	event_team_a_ingame_side: Optional[int] = None,
 ) -> None:
 	match_info = await asyncio.to_thread(fetch_match_metadata, match_id)
 
@@ -1370,6 +1395,7 @@ async def process_match_into_db_async(
 			event_team_a=event_team_a,
 			event_team_b=event_team_b,
 			event_game=event_game,
+			event_team_a_ingame_side=event_team_a_ingame_side,
 		)
 
 		for p in players:
@@ -1420,6 +1446,7 @@ async def run_match_ingest_async(
 					event_team_a=ctx.get("event_team_a"),
 					event_team_b=ctx.get("event_team_b"),
 					event_game=ctx.get("event_game"),
+					event_team_a_ingame_side=ctx.get("event_team_a_ingame_side"),
 				)
 				async with cache_lock:
 					save_json(cache_path, cache)

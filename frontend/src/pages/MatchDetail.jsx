@@ -173,13 +173,13 @@ function MatchDetail() {
 
   return (
     <div className="w-full p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 hidden">
         <Link to="/" className="text-blue-600 hover:underline">
           ← Back to Match List
         </Link>
 
         {/* Match Navigation */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 hidden">
           <button
             onClick={() =>
               previousMatchId && navigate(`/match/${previousMatchId}`)
@@ -199,19 +199,52 @@ function MatchDetail() {
         </div>
       </div>
 
-      <h1 className="text-gray-300 text-3xl font-bold mb-2">Match {matchId}</h1>
-      {adjacentMatches.event_title && (
-        <p className="text-gray-300 text-lg font-semibold mb-1">
-          {adjacentMatches.event_title}
-          {adjacentMatches.event_week != null &&
-            ` #${adjacentMatches.event_week}`}
-        </p>
-      )}
-      {adjacentMatches.start_time && (
-        <p className="text-gray-500 mb-6">
-          {formatDate(adjacentMatches.start_time)}
-        </p>
-      )}
+      <div className="flex gap-4 justify-between items-start bg-gray-800 rounded-lg p-4 mb-2">
+        <div>
+          <h1 className="text-gray-300 text-2xl font-bold mb-4">
+            Match {matchId}
+          </h1>
+          <div className="flex flex-col ">
+            {(adjacentMatches.event_team_a || adjacentMatches.event_team_b) && (
+              <p className="text-gray-300 text-xl font-semibold">
+                {adjacentMatches.event_team_a || "—"}
+                <span className="text-gray-500 mx-2 font-normal">vs</span>
+                {adjacentMatches.event_team_b || "—"}
+                {adjacentMatches.event_game && (
+                  <p className="text-gray-500 text-base font-normal">
+                    {adjacentMatches.event_game}
+                  </p>
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end justify-end">
+          {adjacentMatches.event_title && (
+            <p className="text-gray-300 text-lg font-semibold mb-1">
+              {adjacentMatches.event_title}
+              {adjacentMatches.event_week != null &&
+                ` #${adjacentMatches.event_week}`}
+            </p>
+          )}
+
+          {adjacentMatches.start_time && (
+            <p className="text-gray-500 mb-2">
+              {formatDate(adjacentMatches.start_time)}
+            </p>
+          )}
+
+          {adjacentMatches.event_team_a && (
+            <Link
+              to={`/series/${matchId}`}
+              className="text-sm text-blue-400 hover:underline"
+            >
+              View full series →
+            </Link>
+          )}
+        </div>
+      </div>
 
       {/* Team Amber */}
       <div className="mb-6">
@@ -219,17 +252,13 @@ function MatchDetail() {
           <table className="w-full table-auto rounded-lg ">
             <thead className="">
               <tr className="border-b h-10">
-                <th className="text-left p-3 w-50 relative overflow-visible align-bottom">
+                <th className="text-left py-3 w-50 relative overflow-visible align-bottom">
                   <div className="absolute bottom-0 left-2 flex items-end gap-3 pb-1 pointer-events-none">
-                    <img
-                      src="/static/images/teamNames/team1_patron_logo_psd.png"
-                      alt="Team Amber"
-                      className="h-12"
-                      style={{
-                        filter:
-                          "brightness(0) saturate(100%) invert(64%) sepia(14%) saturate(3308%) hue-rotate(1deg) brightness(106%) contrast(103%)",
-                      }}
-                    />
+                    {adjacentMatches.event_team_a && (
+                      <h2 className="text-amber-300 text-2xl font-bold mb-2 uppercase">
+                        {adjacentMatches.event_team_a}
+                      </h2>
+                    )}
                   </div>
                 </th>
                 <th className="text-center p-3 w-30 align-bottom">K/D/A</th>
@@ -239,7 +268,9 @@ function MatchDetail() {
                 </th>
                 <th className="text-center p-3 w-25 align-bottom">Obj DMG</th>
                 <th className="text-center p-3 w-25 align-bottom">Healing</th>
-                <th className="text-left p-3 align-bottom hidden lg:table-cell">Items</th>
+                <th className="text-left p-3 align-bottom hidden lg:table-cell">
+                  Items
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -393,15 +424,11 @@ function MatchDetail() {
               <tr className="border-b h-10">
                 <th className="text-left py-3 w-50 relative overflow-visible align-bottom">
                   <div className="absolute bottom-0 left-2 flex items-end gap-3 pb-1 pointer-events-none">
-                    <img
-                      src="/static/images/teamNames/team2_patron_logo_psd.png"
-                      alt="Team Sapphire"
-                      className="h-12"
-                      style={{
-                        filter:
-                          "brightness(0) saturate(100%) invert(24%) sepia(96%) saturate(1698%) hue-rotate(203deg) brightness(94%) contrast(115%)",
-                      }}
-                    />
+                    {adjacentMatches.event_team_b && (
+                      <h2 className="text-team-sapphire text-2xl font-bold mb-2 uppercase">
+                        {adjacentMatches.event_team_b}
+                      </h2>
+                    )}
                   </div>
                 </th>
                 <th className="text-center p-3 w-30 align-bottom">K/D/A</th>
