@@ -300,7 +300,7 @@ function HeroDetail() {
         ) : (
           <>
           <div className="flex flex-wrap gap-4">
-            {(showMoreItems ? topItems : topItems.slice(0, 5)).map((item) => {
+            {(showMoreItems ? topItems : topItems.slice(0, 10)).map((item) => {
               const folder = item.item_tier === 5 ? "legendaries" : item.item_slot_type;
               const imgSrc = folder
                 ? `/static/images/items/${folder}/${item.name.toLowerCase().replace(/ /g, "_")}_psd.png`
@@ -336,14 +336,6 @@ function HeroDetail() {
               );
             })}
           </div>
-          {topItems.length > 5 && (
-            <button
-              onClick={() => setShowMoreItems((v) => !v)}
-              className="mt-3 text-xs text-blue-400 hover:underline"
-            >
-              {showMoreItems ? 'Show less' : `Show ${topItems.length - 5} more`}
-            </button>
-          )}
           </>
         )}
       </div>
