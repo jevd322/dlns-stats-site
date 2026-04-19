@@ -229,11 +229,12 @@ def logout():
 @auth_bp.route('/api/me')
 def api_me():
     """Get current user from secure session cookie"""
+    from utils.auth import is_admin as _is_admin
     session_token = request.cookies.get('session_token')
     if not session_token:
-        return jsonify({'ok': False, 'user': None})
+        return jsonify({'ok': False, 'user': None, 'is_admin': False})
     
     user = _get_session(session_token)
     if user:
-        return jsonify({'ok': True, 'user': user})
-    return jsonify({'ok': False, 'user': None})
+        return jsonify({'ok': True, 'user': user, 'is_admin': _is_admin(user['id'])})
+    return jsonify({'ok': False, 'user': None, 'is_admin': False})

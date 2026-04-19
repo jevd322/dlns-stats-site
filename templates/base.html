@@ -86,14 +86,12 @@
       </div>
       
       <!-- Admin Section (only for admins) -->
-      {% if is_logged_in and current_user %}
-        {% set user_id = current_user.id %}
-        {% if user_id == "950380630905069578" %}
-        <div class="sidebar-section">
-          <h4>Admin</h4>
-          <a href="/admin/" class="sidebar-link admin-link">⚙️ Admin Panel</a>
-        </div>
-        {% endif %}
+      {% if is_logged_in and is_admin %}
+      <div class="sidebar-section">
+        <h4>Admin</h4>
+        <a href="/admin/" class="sidebar-link admin-link">⚙️ Admin Panel</a>
+        <a href="/admin/matches" class="sidebar-link admin-link">➕ Add Match</a>
+      </div>
       {% endif %}
       
       <!-- Social Links -->
@@ -148,6 +146,11 @@
             <input type="search" name="q" placeholder="Search..." aria-label="Search"/>
           </form>
         </li>
+        {% if is_logged_in and is_admin %}
+        <li class="hide-on-mobile">
+          <a href="/admin/matches" class="admin-nav-btn" title="Admin: Add Match">⚙️ Admin</a>
+        </li>
+        {% endif %}
         <li class="hide-on-mobile auth-quick">
           {% if is_logged_in %}
             <span class="user-greeting">👤 {{ current_user.username }}</span>

@@ -987,6 +987,24 @@ textarea:focus {
   text-decoration: none;
 }
 
+.admin-nav-btn {
+  padding: 0.35rem 0.7rem;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24 !important;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  transition: all 0.2s ease;
+}
+
+.admin-nav-btn:hover {
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(251, 191, 36, 0.6);
+  text-decoration: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .hide-on-small {

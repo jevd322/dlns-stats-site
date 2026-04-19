@@ -35,6 +35,7 @@ from blueprints.vdata import vdata_editor_bp
 from blueprints.submission_bp import submission_bp
 from blueprints.ranker import ranker_bp
 from blueprints.react_stats import react_stats_bp
+from blueprints.match_admin import match_admin_bp
 
 
 def create_app() -> Flask:
@@ -133,6 +134,7 @@ def create_app() -> Flask:
     app.register_blueprint(submission_bp)
     app.register_blueprint(ranker_bp)
     app.register_blueprint(react_stats_bp)
+    app.register_blueprint(match_admin_bp)
 
     # Jinja filters
     def format_duration(seconds: int | None) -> str:
@@ -311,10 +313,11 @@ def create_app() -> Flask:
     # Add authentication context processor
     @app.context_processor
     def inject_auth():
-        from utils.auth import get_current_user, is_logged_in
+        from utils.auth import get_current_user, is_logged_in, is_admin
         return dict(
             current_user=get_current_user(),
-            is_logged_in=is_logged_in()
+            is_logged_in=is_logged_in(),
+            is_admin=is_admin()
         )
 
     # If templates call get_hero_name, expose it:

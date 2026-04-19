@@ -1,23 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-/**
- * DLNS Header Component
- * 
- * Reusable header with customizable title and subtitle
- * 
- * Props:
- * @param {string} title - Main heading text (default: "DLNS Stats")
- * @param {string} subtitle - Subheading text (default: "Deadlock Night Shift")
- * @param {boolean} showLogo - Show/hide logo (default: true)
- * @param {string} className - Additional CSS classes
- */
 function DLNS_Header({ 
   title = "DLNS Stats", 
   subtitle = "Deadlock Night Shift",
   showLogo = true,
   className = "" 
 }) {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    fetch('/auth/api/me', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.ok && data.user) setUser(data.user);
+        if (data?.is_admin) setIsAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
+
   const navItems = [
     { label: 'Home', href: '/' },
     { label: 'Heroes', href: '/heroes' },
@@ -52,8 +54,39 @@ function DLNS_Header({
             ))}
           </nav>
           
-          {/* GitHub Link */}
+          {/* Right side */}
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <a
+                href="/admin/matches"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
+                style={{
+                  background: 'rgba(251,191,36,0.12)',
+                  color: '#fbbf24',
+                  borderColor: 'rgba(251,191,36,0.3)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.22)'; e.currentTarget.style.borderColor = 'rgba(251,191,36,0.6)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(251,191,36,0.12)'; e.currentTarget.style.borderColor = 'rgba(251,191,36,0.3)'; }}
+              >
+                ⚙️ Admin
+              </a>
+            )}
+            {user ? (
+              <a
+                href="/auth/logout"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 transition-all"
+              >
+                {user.username} · Logout
+              </a>
+            ) : (
+              <a
+                href="/auth/login"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold text-white border border-white/30 hover:border-white/60 hover:text-white transition-all"
+                style={{ background: 'rgba(255,255,255,0.07)' }}
+              >
+                Login with Discord
+              </a>
+            )}
             <a 
               href="https://github.com/jevd322/dlns-stats-site" 
               target="_blank" 
@@ -65,6 +98,7 @@ function DLNS_Header({
               </svg>
             </a>
           </div>
+
         </div>
       </div>
     </header>
