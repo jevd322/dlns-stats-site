@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from flask import Blueprint, render_template, current_app, jsonify, request
-from utils.auth import require_admin, get_current_user, get_all_privileged_users, is_admin
+from utils.auth import require_admin, get_current_user, get_all_privileged_users, is_admin, require_submit_perms
 from main import (
     SkipMatchSilent,
     db_connect,
