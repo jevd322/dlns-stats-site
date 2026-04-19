@@ -78,33 +78,87 @@ function MatchRow({ match }) {
 }
 
 function SeriesBlock({ teamA, teamB, matches }) {
-  const amberWins = matches.filter(
-    (m) => m.winning_team === m.event_team_a_ingame_side
-  ).length;
-  const sapphireWins = matches.filter(
-    (m) =>
-      m.winning_team != null &&
-      m.event_team_a_ingame_side != null &&
-      m.winning_team !== m.event_team_a_ingame_side
-  ).length;
+  const [showPlayers, setShowPlayers] = useState(false);
+
+  // Tally series wins per team
+  const { teamAWins, teamBWins, seriesWinner } = useMemo(() => {
+    let aWins = 0;
+    let bWins = 0;
+    for (const m of matches) {
+      if (m.winning_team == null) continue;
+      const teamAIngameSide = m.event_team_a_ingame_side;
+      if (teamAIngameSide != null) {
+        if (m.winning_team === teamAIngameSide) aWins++;
+        else bWins++;
+      } else {
+        // Fallback: assume team_a = amber (side 0)
+        if (m.winning_team === 0) aWins++;
+        else bWins++;
+      }
+    }
+    const winner = aWins > bWins ? "a" : bWins > aWins ? "b" : null;
+    return { teamAWins: aWins, teamBWins: bWins, seriesWinner: winner };
+  }, [matches]);
+
+  // Deduplicate players per team across all games in the series
+  const { teamAPlayers, teamBPlayers } = useMemo(() => {
+    const aMap = new Map();
+    const bMap = new Map();
+    for (const m of matches) {
+      const side = m.event_team_a_ingame_side;
+      for (const p of m.players || []) {
+        if (!p.account_id) continue;
+        const isTeamA = side != null ? p.team === side : p.team === 0;
+        const map = isTeamA ? aMap : bMap;
+        if (!map.has(p.account_id)) map.set(p.account_id, p);
+      }
+    }
+    return {
+      teamAPlayers: [...aMap.values()],
+      teamBPlayers: [...bMap.values()],
+    };
+  }, [matches]);
+
+  const hasPlayers = teamAPlayers.length > 0 || teamBPlayers.length > 0;
 
   return (
     <div className="rounded-xl border border-gray-700/60 bg-gray-800/20 overflow-hidden">
       {/* Series header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-800/60 border-b border-gray-700/60">
-        <Link
-          to={`/team/${encodeURIComponent(teamA)}`}
-          className="text-sm font-semibold text-amber-300 hover:underline"
-        >
-          {teamA}
-        </Link>
-        <span className="text-xs text-gray-500 uppercase tracking-wider mx-3">vs</span>
-        <Link
-          to={`/team/${encodeURIComponent(teamB)}`}
-          className="text-sm font-semibold text-blue-300 hover:underline"
-        >
-          {teamB}
-        </Link>
+        <div className="flex items-center gap-2 min-w-0">
+          <Link
+            to={`/team/${encodeURIComponent(teamA)}`}
+            className="text-sm font-semibold text-amber-300 hover:underline truncate"
+          >
+            {teamA}
+          </Link>
+          {seriesWinner === "a" && (
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded">
+              Winner
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col items-center shrink-0 mx-3">
+          <span className="text-xs text-gray-500 uppercase tracking-wider">vs</span>
+          {(teamAWins > 0 || teamBWins > 0) && (
+            <span className="text-xs font-bold text-gray-300 tabular-nums mt-0.5">
+              {teamAWins} – {teamBWins}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 justify-end min-w-0">
+          {seriesWinner === "b" && (
+            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-blue-400/20 text-blue-300 border border-blue-400/40 px-1.5 py-0.5 rounded">
+              Winner
+            </span>
+          )}
+          <Link
+            to={`/team/${encodeURIComponent(teamB)}`}
+            className="text-sm font-semibold text-blue-300 hover:underline truncate"
+          >
+            {teamB}
+          </Link>
+        </div>
       </div>
 
       {/* Matches */}
@@ -113,6 +167,65 @@ function SeriesBlock({ teamA, teamB, matches }) {
           <MatchRow key={m.match_id} match={m} />
         ))}
       </div>
+
+      {/* Players accordion toggle */}
+      {hasPlayers && (
+        <div className="border-t border-gray-700/60">
+          <button
+            onClick={() => setShowPlayers((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-gray-400 hover:bg-gray-700/40 hover:text-gray-200 transition-all"
+          >
+            <span className="font-semibold uppercase tracking-wider">Players</span>
+            <span>{showPlayers ? "▲" : "▼"}</span>
+          </button>
+
+          {showPlayers && (
+            <div className="grid grid-cols-2 gap-px bg-gray-700/30 border-t border-gray-700/60">
+              {/* Team A */}
+              <div className="bg-gray-800/40 p-3 space-y-1">
+                <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider mb-2">
+                  {teamA}
+                </p>
+                {teamAPlayers.map((p) => (
+                  <Link
+                    key={p.account_id}
+                    to={`/player/${p.account_id}`}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 transition-all"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
+                      {(p.persona_name || "?")[0].toUpperCase()}
+                    </div>
+                    <span className="text-sm text-gray-200 truncate hover:underline">
+                      {p.persona_name || `Player ${p.account_id}`}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Team B */}
+              <div className="bg-gray-800/40 p-3 space-y-1">
+                <p className="text-xs font-semibold text-blue-300 uppercase tracking-wider mb-2">
+                  {teamB}
+                </p>
+                {teamBPlayers.map((p) => (
+                  <Link
+                    key={p.account_id}
+                    to={`/player/${p.account_id}`}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-700/50 transition-all"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
+                      {(p.persona_name || "?")[0].toUpperCase()}
+                    </div>
+                    <span className="text-sm text-gray-200 truncate hover:underline">
+                      {p.persona_name || `Player ${p.account_id}`}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
