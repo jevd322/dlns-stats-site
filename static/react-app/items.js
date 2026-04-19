@@ -1,1 +1,1 @@
-import{C as e,E as t,T as n,w as r}from"./chunks/api.js";import{t as i}from"./chunks/App.js";var a=t(n(),1),o=t(r(),1),s=e();o.createRoot(document.getElementById(`root`)).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));
+import{i as e,n as t,r as n,t as r}from"./chunks/jsx-runtime.js";import{t as i}from"./chunks/App.js";var a=e(n(),1),o=e(t(),1),s=r();o.createRoot(document.getElementById(`root`)).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));

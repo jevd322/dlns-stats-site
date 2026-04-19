@@ -22,6 +22,7 @@ function DLNS_Header({
     { label: 'Home', href: '/' },
     { label: 'Heroes', href: '/heroes' },
     { label: 'Stats', href: '/stats' },
+    { label: 'Admin', href: '/react-admin' },
     { label: 'Community', href: '#' },
   ];
 
