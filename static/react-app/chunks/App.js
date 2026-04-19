@@ -13,7 +13,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
     flex-direction: column;
     gap: 10px;
     pointer-events: none;
-  `,document.body.appendChild(Sf),Sf)}function wf(e,t=`info`,n=3e3){let r=Cf(),i=document.createElement(`div`);i.style.cssText=`
+  `,document.body.appendChild(Ff),Ff)}function Lf(e,t=`info`,n=3e3){let r=If(),i=document.createElement(`div`);i.style.cssText=`
     padding: 12px 20px;
     border-radius: 8px;
     font-size: 14px;

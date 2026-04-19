@@ -414,9 +414,16 @@ function MatchList() {
                     className="border-b border-border-light text-gray-200 hover:bg-hover"
                   >
                     <td className="p-4 text-gray-400 text-sm">
-                      {weekMap[String(match.match_id)] != null
-                        ? `Night Shift #${weekMap[String(match.match_id)]}`
-                        : "-"}
+                      {weekMap[String(match.match_id)] != null ? (
+                        <Link
+                          to={`/week/${weekMap[String(match.match_id)]}`}
+                          className="hover:underline hover:text-gray-200"
+                        >
+                          Night Shift #{weekMap[String(match.match_id)]}
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="p-4">
                       <Link
