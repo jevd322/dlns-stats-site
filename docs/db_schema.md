@@ -47,12 +47,13 @@ Stores per-match metadata.
 | `event_team_a` | TEXT | Yes | Team A/name from match JSON game entry |
 | `event_team_b` | TEXT | Yes | Team B/name from match JSON game entry |
 | `event_game` | TEXT | Yes | Game label from match JSON (e.g. Game 1) |
+| `event_team_a_ingame_side` | INTEGER | Yes | Team A in-game side from match JSON, `0` = Amber and `1` = Sapphire |
 | `start_time` | TEXT | Yes | ISO-8601 UTC (derived from API) |
 | `created_at` | TEXT | Yes | ISO-8601 UTC (scrape time) |
 
 Notes:
 - `start_time` may be derived from multiple API fields and normalized to ISO-8601 UTC.
-- Migrations add `start_time`, `event_title`, `event_week`, `event_team_a`, `event_team_b`, and `event_game` if they do not exist.
+- Migrations add `start_time`, `event_title`, `event_week`, `event_team_a`, `event_team_b`, `event_game`, and `event_team_a_ingame_side` if they do not exist.
 
 ## Table: `players`
 

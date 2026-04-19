@@ -326,7 +326,7 @@ def latest_matches():  # type: ignore
     limit = int(current_app.config.get("API_LATEST_LIMIT", 50))
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at "
+            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at "
             "FROM matches ORDER BY created_at DESC LIMIT ?",
             (limit,),
         )
@@ -396,7 +396,7 @@ def latest_matches_paged():  # type: ignore
         ccur = conn.execute(f"SELECT COUNT(DISTINCT m.match_id) {sql_base}{joins}{where}", tuple(params))
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.start_time, m.created_at {sql_base}{joins}{where} "
+            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.event_team_a_ingame_side, m.start_time, m.created_at {sql_base}{joins}{where} "
             f"ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
@@ -437,7 +437,7 @@ def latest_matches_paged():  # type: ignore
 def match_adjacent(match_id: int):  # type: ignore
     with get_ro_conn() as conn:
         cur_row = conn.execute(
-            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game FROM matches WHERE match_id = ?",
+            "SELECT start_time, winning_team, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side FROM matches WHERE match_id = ?",
             (match_id,),
         ).fetchone()
         prev_row = conn.execute(
@@ -460,6 +460,7 @@ def match_adjacent(match_id: int):  # type: ignore
         "event_team_a": cur_row[4] if cur_row else None,
         "event_team_b": cur_row[5] if cur_row else None,
         "event_game": cur_row[6] if cur_row else None,
+        "event_team_a_ingame_side": cur_row[7] if cur_row else None,
         "previous_match_id": prev_row[0] if prev_row else None,
         "next_match_id": next_row[0] if next_row else None,
     })
