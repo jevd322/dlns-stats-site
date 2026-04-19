@@ -62,6 +62,55 @@ function PlayerDetail() {
     return `/static/images/cardicons/${slug}_card_psd.png`;
   };
 
+  const [expandedTeams, setExpandedTeams] = useState({});
+
+  const toggleTeam = (name) =>
+    setExpandedTeams((prev) => ({ ...prev, [name]: !prev[name] }));
+
+  const getTeamHistory = () => {
+    const teamMap = {};
+    for (const match of matches) {
+      const { event_team_a, event_team_b, event_team_a_ingame_side, team, result, event_week } = match;
+      if (!event_team_a && !event_team_b) continue;
+      let teamName = null;
+      if (event_team_a_ingame_side != null) {
+        teamName = team === event_team_a_ingame_side ? event_team_a : event_team_b;
+      }
+      if (!teamName) continue;
+      if (!teamMap[teamName]) {
+        teamMap[teamName] = { name: teamName, games: 0, wins: 0, weeks: new Set() };
+      }
+      teamMap[teamName].games++;
+      if (result === "Win") teamMap[teamName].wins++;
+      if (event_week != null) teamMap[teamName].weeks.add(event_week);
+    }
+    return Object.values(teamMap)
+      .map((t) => ({
+        ...t,
+        weeks: [...t.weeks].sort((a, b) => a - b),
+        weekStats: Object.fromEntries(
+          [...t.weeks].sort((a, b) => a - b).map((w) => [
+            w,
+            (() => {
+              const wMatches = matches.filter(
+                (m) =>
+                  m.event_week === w &&
+                  m.event_team_a_ingame_side != null &&
+                  (m.team === m.event_team_a_ingame_side
+                    ? m.event_team_a
+                    : m.event_team_b) === t.name
+              );
+              return {
+                games: wMatches.length,
+                wins: wMatches.filter((m) => m.result === "Win").length,
+              };
+            })()
+          ])
+        ),
+      }))
+      .sort((a, b) => b.games - a.games);
+  };
+
   const getMostPlayedHeroes = () => {
     const heroMap = {};
     for (const match of matches) {
@@ -117,38 +166,73 @@ function PlayerDetail() {
         <p className="text-gray-600">Account ID: {accountId}</p>
       </div>
 
-      {/* Player Stats */}
-      {stats && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-4">Statistics</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-gray-600 text-sm">Total Matches</p>
-              <p className="text-2xl font-bold">{stats.matches_played || 0}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Wins</p>
-              <p className="text-2xl font-bold text-green-600">
-                {stats.wins || 0}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Losses</p>
-              <p className="text-2xl font-bold text-red-600">
-                {stats.losses || 0}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Win Rate</p>
-              <p className="text-2xl font-bold">
-                {stats.winrate != null
-                  ? (stats.winrate * 100).toFixed(1) + "%"
-                  : "0%"}
-              </p>
+
+      {/* Team History */}
+      {(() => {
+        const teamHistory = getTeamHistory();
+        return teamHistory.length > 0 ? (
+          <div className="bg-panel text-gray-300 shadow rounded-lg p-6 mb-6">
+            <h2 className="text-2xl font-bold mb-4">Team History</h2>
+            <div className="space-y-2">
+              {teamHistory.map((t) => (
+                <div key={t.name} className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-hidden">
+                  {/* Header row */}
+                  <button
+                    onClick={() => toggleTeam(t.name)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-700/50 transition-all text-left"
+                  >
+                    <Link
+                      to={`/team/${encodeURIComponent(t.name)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-semibold text-gray-100 hover:underline"
+                    >
+                      {t.name}
+                    </Link>
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <span>{t.games} match{t.games !== 1 ? "es" : ""}</span>
+                      <span>
+                        <span className="text-green-400 font-semibold">{t.wins}W</span>
+                        {" – "}
+                        <span className="text-red-400 font-semibold">{t.games - t.wins}L</span>
+                      </span>
+                      {t.weeks.length > 0 && (
+                        <span>Wk {t.weeks[0]}{t.weeks.length > 1 ? `–${t.weeks[t.weeks.length - 1]}` : ""}</span>
+                      )}
+                      <span className="text-gray-500 text-xs">{expandedTeams[t.name] ? "▲" : "▼"}</span>
+                    </div>
+                  </button>
+
+                  {/* Expanded week list */}
+                  {expandedTeams[t.name] && (
+                    <div className="border-t border-gray-700/60 divide-y divide-gray-700/40">
+                      {t.weeks.map((w) => {
+                        const ws = t.weekStats[w];
+                        return (
+                          <Link
+                            key={w}
+                            to={`/week/${w}`}
+                            className="flex items-center justify-between px-6 py-2.5 hover:bg-gray-700/40 transition-all"
+                          >
+                            <span className="text-sm text-gray-300">Week {w}</span>
+                            <div className="flex items-center gap-3 text-xs text-gray-400">
+                              <span>{ws.games} match{ws.games !== 1 ? "es" : ""}</span>
+                              <span>
+                                <span className="text-green-400">{ws.wins}W</span>
+                                {" – "}
+                                <span className="text-red-400">{ws.games - ws.wins}L</span>
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       {/* Most Played Heroes */}
       {matches.length > 0 && (
@@ -185,7 +269,9 @@ function PlayerDetail() {
                             e.target.style.display = "none";
                           }}
                         />
-                        <span className="font-medium text-blue-600 hover:underline">{hero.hero_name}</span>
+                        <span className="font-medium text-blue-600 hover:underline">
+                          {hero.hero_name}
+                        </span>
                       </Link>
                     </td>
 
@@ -209,7 +295,7 @@ function PlayerDetail() {
                         {(hero.assists / hero.games).toFixed(1)})
                       </span>
                     </td>
-                                        <td className="">
+                    <td className="">
                       <div className="flex items-center gap-2">
                         <div className="w-24 bg-slate-600 rounded-full h-2">
                           <div
@@ -249,13 +335,16 @@ function PlayerDetail() {
           <tbody>
             {matches.length === 0 ? (
               <tr>
-                  <td colSpan="6" className="p-4 text-center text-gray-400">
+                <td colSpan="6" className="p-4 text-center text-gray-400">
                   No matches found
                 </td>
               </tr>
             ) : (
               matches.slice(0, 20).map((match) => (
-                <tr key={match.match_id} className="border-b border-gray-700 hover:bg-slate-800/90">
+                <tr
+                  key={match.match_id}
+                  className="border-b border-gray-700 hover:bg-slate-800/90"
+                >
                   <td className="p-3">
                     <Link
                       to={`/match/${match.match_id}`}

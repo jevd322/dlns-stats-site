@@ -207,9 +207,13 @@ function MatchDetail() {
           <div className="flex flex-col ">
             {(adjacentMatches.event_team_a || adjacentMatches.event_team_b) && (
               <p className="text-gray-300 text-xl font-semibold">
-                {adjacentMatches.event_team_a || "—"}
+                {adjacentMatches.event_team_a ? (
+                  <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_a)}`} className="hover:underline">{adjacentMatches.event_team_a}</Link>
+                ) : "—"}
                 <span className="text-gray-500 mx-2 font-normal">vs</span>
-                {adjacentMatches.event_team_b || "—"}
+                {adjacentMatches.event_team_b ? (
+                  <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_b)}`} className="hover:underline">{adjacentMatches.event_team_b}</Link>
+                ) : "—"}
                 {adjacentMatches.event_game && (
                   <p className="text-gray-500 text-base font-normal">
                     {adjacentMatches.event_game}
@@ -223,9 +227,16 @@ function MatchDetail() {
         <div className="flex flex-col items-end justify-end">
           {adjacentMatches.event_title && (
             <p className="text-gray-300 text-lg font-semibold mb-1">
-              {adjacentMatches.event_title}
-              {adjacentMatches.event_week != null &&
-                ` #${adjacentMatches.event_week}`}
+              {adjacentMatches.event_week != null ? (
+                <Link
+                  to={`/week/${adjacentMatches.event_week}`}
+                  className="hover:underline"
+                >
+                  {adjacentMatches.event_title} #{adjacentMatches.event_week}
+                </Link>
+              ) : (
+                adjacentMatches.event_title
+              )}
             </p>
           )}
 
@@ -255,9 +266,16 @@ function MatchDetail() {
                 <th className="text-left py-3 w-50 relative overflow-visible align-bottom">
                   <div className="absolute bottom-0 left-2 flex items-end gap-3 pb-1 pointer-events-none">
                     {adjacentMatches.event_team_a && (
-                      <h2 className="text-amber-300 text-2xl font-bold mb-2 uppercase">
-                        {adjacentMatches.event_team_a}
-                      </h2>
+                      <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_a)}`} className="pointer-events-auto">
+                        <h2 className="text-amber-300 text-2xl font-bold mb-2 uppercase hover:underline">
+                          {adjacentMatches.event_team_a}
+                        </h2>
+                      </Link>
+                    )}
+                    {winningTeam === 0 && (
+                      <span className="pointer-events-none mb-2.5 text-xs font-semibold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 uppercase tracking-wider">
+                        WIN
+                      </span>
                     )}
                   </div>
                 </th>
@@ -425,9 +443,16 @@ function MatchDetail() {
                 <th className="text-left py-3 w-50 relative overflow-visible align-bottom">
                   <div className="absolute bottom-0 left-2 flex items-end gap-3 pb-1 pointer-events-none">
                     {adjacentMatches.event_team_b && (
-                      <h2 className="text-team-sapphire text-2xl font-bold mb-2 uppercase">
-                        {adjacentMatches.event_team_b}
-                      </h2>
+                      <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_b)}`} className="pointer-events-auto">
+                        <h2 className="text-team-sapphire text-2xl font-bold mb-2 uppercase hover:underline">
+                          {adjacentMatches.event_team_b}
+                        </h2>
+                      </Link>
+                    )}
+                    {winningTeam === 1 && (
+                      <span className="pointer-events-none mb-2.5 text-xs font-semibold px-2 py-0.5 rounded bg-blue-400/20 text-blue-300 border border-blue-400/40 uppercase tracking-wider">
+                        WIN
+                      </span>
                     )}
                   </div>
                 </th>

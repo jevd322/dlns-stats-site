@@ -604,7 +604,7 @@ def user_stats(account_id: int):  # type: ignore
 def user_matches_api(account_id: int):
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, m.duration_s, m.winning_team, m.game_mode, m.match_mode, m.start_time, m.created_at "
+            "SELECT p.match_id, p.team, p.result, p.hero_id, p.kills, p.deaths, p.assists, p.last_hits, p.denies, p.creep_kills, p.shots_hit, p.shots_missed, p.player_damage, p.obj_damage, p.player_healing, p.pings_count, m.duration_s, m.winning_team, m.game_mode, m.match_mode, m.start_time, m.created_at, m.event_team_a, m.event_team_b, m.event_team_a_ingame_side, m.event_week "
             "FROM players p JOIN matches m ON m.match_id = p.match_id WHERE p.account_id = ? ORDER BY m.created_at DESC",
             (account_id,),
         )
@@ -1025,3 +1025,179 @@ def series_detail(match_id: int):
         "event_team_b": event_team_b,
         "matches": matches,
     })
+
+
+@bp.get("/teams")
+@cache.cached(timeout=300)
+def get_teams():
+    """Return list of all unique team names with match counts."""
+    with get_ro_conn() as conn:
+        cur = conn.execute(
+            """
+            SELECT team_name, COUNT(DISTINCT match_id) AS matches
+            FROM (
+                SELECT event_team_a AS team_name, match_id FROM matches
+                WHERE event_team_a IS NOT NULL AND event_team_a != ''
+                UNION ALL
+                SELECT event_team_b AS team_name, match_id FROM matches
+                WHERE event_team_b IS NOT NULL AND event_team_b != ''
+            )
+            GROUP BY team_name
+            ORDER BY team_name ASC
+            """
+        )
+        return jsonify({"teams": _rows_to_dicts(cur)})
+
+
+@bp.get("/team/<path:team_name>")
+@cache.cached(timeout=120)
+def get_team_detail(team_name: str):
+    """Return team detail: players sorted by appearances and full match history."""
+    with get_ro_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT MAX(event_week) FROM matches
+            WHERE (event_team_a = ? OR event_team_b = ?) AND event_week IS NOT NULL
+            """,
+            (team_name, team_name),
+        ).fetchone()
+        max_week = row[0] if row else None
+
+        # Use event_team_a_ingame_side to restrict to players on the correct side.
+        # When team is team_a: their in-game side = event_team_a_ingame_side → p.team = event_team_a_ingame_side
+        # When team is team_b: their in-game side = 1 - event_team_a_ingame_side → p.team != event_team_a_ingame_side
+        # Fallback (no ingame_side data): include all players from matching matches.
+        cur = conn.execute(
+            """
+            SELECT
+                p.account_id,
+                u.persona_name,
+                COUNT(DISTINCT m.match_id) AS appearances,
+                MAX(m.event_week) AS last_week,
+                MIN(m.event_week) AS first_week
+            FROM players p
+            JOIN matches m ON m.match_id = p.match_id
+            LEFT JOIN users u ON u.account_id = p.account_id
+            WHERE p.account_id IS NOT NULL
+              AND (
+                (m.event_team_a = ? AND m.event_team_a_ingame_side IS NOT NULL AND p.team = m.event_team_a_ingame_side)
+                OR
+                (m.event_team_b = ? AND m.event_team_a_ingame_side IS NOT NULL AND p.team != m.event_team_a_ingame_side)
+                OR
+                (m.event_team_a_ingame_side IS NULL AND (m.event_team_a = ? OR m.event_team_b = ?))
+              )
+            GROUP BY p.account_id, u.persona_name
+            ORDER BY appearances DESC, u.persona_name ASC
+            LIMIT 200
+            """,
+            (team_name, team_name, team_name, team_name),
+        )
+        players = _rows_to_dicts(cur)
+
+        cur2 = conn.execute(
+            """
+            SELECT
+                m.match_id, m.event_game, m.event_week, m.event_title,
+                m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
+                m.winning_team, m.duration_s, m.start_time
+            FROM matches m
+            WHERE m.event_team_a = ? OR m.event_team_b = ?
+            ORDER BY m.start_time DESC
+            """,
+            (team_name, team_name),
+        )
+        matches = _rows_to_dicts(cur2)
+
+        return jsonify({
+            "team_name": team_name,
+            "max_week": max_week,
+            "total_matches": len(matches),
+            "players": players,
+            "matches": matches,
+        })
+
+
+@bp.get("/nightshift/<int:week>")
+@cache.cached(timeout=120)
+def nightshift_week(week: int):
+    """Return all matches and summary stats for a given Night Shift week."""
+    event_title = request.args.get("event_title", "Night Shift")
+    with get_ro_conn() as conn:
+        # Summary stats for the week
+        stats_row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_matches,
+                SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) AS amber_wins,
+                SUM(CASE WHEN winning_team = 1 THEN 1 ELSE 0 END) AS sapphire_wins,
+                ROUND(AVG(duration_s), 0) AS avg_duration_s,
+                MIN(start_time) AS first_match_time
+            FROM matches
+            WHERE event_title = ? AND event_week = ?
+            """,
+            (event_title, week),
+        ).fetchone()
+        stats_cols = ["total_matches", "amber_wins", "sapphire_wins", "avg_duration_s", "first_match_time"]
+        stats = dict(zip(stats_cols, stats_row)) if stats_row else {}
+
+        # All matches for this week
+        cur = conn.execute(
+            """
+            SELECT
+                m.match_id, m.duration_s, m.winning_team,
+                m.event_title, m.event_week, m.event_game,
+                m.event_team_a, m.event_team_b, m.event_team_a_ingame_side,
+                m.start_time
+            FROM matches m
+            WHERE m.event_title = ? AND m.event_week = ?
+            ORDER BY m.start_time ASC, m.match_id ASC
+            """,
+            (event_title, week),
+        )
+        matches = _rows_to_dicts(cur)
+
+        # Player stats for each match
+        match_ids = [m["match_id"] for m in matches]
+        if match_ids:
+            placeholders = ",".join("?" * len(match_ids))
+            pcur = conn.execute(
+                f"""
+                SELECT p.match_id, p.team, p.hero_id, p.kills, p.deaths, p.assists,
+                       p.net_worth, p.player_damage, p.player_healing,
+                       p.account_id, u.persona_name
+                FROM players p
+                LEFT JOIN users u ON u.account_id = p.account_id
+                WHERE p.match_id IN ({placeholders})
+                ORDER BY p.team, p.player_slot
+                """,
+                tuple(match_ids),
+            )
+            players_by_match: dict = {}
+            for row in _rows_to_dicts(pcur):
+                mid = row["match_id"]
+                if mid not in players_by_match:
+                    players_by_match[mid] = []
+                if row.get("hero_id"):
+                    row["hero_name"] = get_hero_name(row["hero_id"])
+                players_by_match[mid].append(row)
+            for m in matches:
+                m["players"] = players_by_match.get(m["match_id"], [])
+
+        # Neighbouring weeks so the page can offer prev/next navigation
+        neighbours = conn.execute(
+            """
+            SELECT DISTINCT event_week FROM matches
+            WHERE event_title = ? AND event_week IS NOT NULL
+            ORDER BY event_week ASC
+            """,
+            (event_title,),
+        ).fetchall()
+        all_weeks = [r[0] for r in neighbours]
+
+        return jsonify({
+            "week": week,
+            "event_title": event_title,
+            "stats": stats,
+            "matches": matches,
+            "all_weeks": all_weeks,
+        })
