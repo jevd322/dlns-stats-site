@@ -143,6 +143,16 @@ function SeriesDetail() {
                 >
                   Full details →
                 </Link>
+                {match.match_vod && (
+                  <a
+                    href={match.match_vod}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:underline text-xs"
+                  >
+                    Watch VOD ↗
+                  </a>
+                )}
               </div>
 
               {/* Teams side by side */}

@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 const API_BASE = '';
 
-const emptyMatch = () => ({ match_id: '', winner: '', game: '' });
-const emptySet = () => ({ team_a: '', team_b: '', matches: [emptyMatch()] });
+const emptyMatch = () => ({ match_id: '', winner: '', game: '', skip: false });
+const emptySet = () => ({ set_title: '', team_a: '', team_b: '', vod_link: '', region: '', matches: [emptyMatch()] });
 
 const formatDuration = (s) => {
   const num = Number(s);
@@ -51,6 +51,8 @@ export function MatchAdmin() {
   const [jobId, setJobId] = useState('');
   const [jobState, setJobState] = useState(null);
   const [error, setError] = useState('');
+  const [backfillingNames, setBackfillingNames] = useState(false);
+  const [backfillNotice, setBackfillNotice] = useState('');
   const [previews, setPreviews] = useState({});
 
   const [treeLoading, setTreeLoading] = useState(false);
@@ -142,19 +144,50 @@ export function MatchAdmin() {
     setError('');
     setJobState(null);
 
+    for (let setIndex = 0; setIndex < sets.length; setIndex += 1) {
+      const setItem = sets[setIndex];
+      const teamA = (setItem.team_a || '').trim();
+      const teamB = (setItem.team_b || '').trim();
+      const allowed = new Set(['team a', 'team b', 'a', 'b', teamA.toLowerCase(), teamB.toLowerCase()]);
+
+      for (let matchIndex = 0; matchIndex < (setItem.matches || []).length; matchIndex += 1) {
+        const match = setItem.matches[matchIndex];
+        const hasMatchId = String(match.match_id || '').trim();
+        if (!hasMatchId) continue;
+        if (match.skip) continue;
+
+        const winner = (match.winner || '').trim();
+        if (!winner) {
+          setError(`Set ${setIndex + 1}, match ${matchIndex + 1}: winner is required.`);
+          return;
+        }
+
+        if (!allowed.has(winner.toLowerCase())) {
+          setError(
+            `Set ${setIndex + 1}, match ${matchIndex + 1}: winner must be Team A, Team B, A, B, or exact team names (${teamA}/${teamB}).`,
+          );
+          return;
+        }
+      }
+    }
+
     const payload = {
       title: title.trim(),
       week: Number(week),
       vod_link: vodLink.trim(),
       sets: sets.map((s) => ({
+        set_title: (s.set_title || '').trim(),
         team_a: s.team_a.trim(),
         team_b: s.team_b.trim(),
+        vod_link: (s.vod_link || '').trim(),
+        region: (s.region || '').trim(),
         matches: s.matches
           .filter((m) => String(m.match_id || '').trim())
           .map((m, idx) => ({
             match_id: Number(m.match_id),
             winner: m.winner.trim(),
             game: m.game.trim() || `Game ${idx + 1}`,
+            skip: m.skip || false,
           })),
       })),
     };
@@ -174,6 +207,27 @@ export function MatchAdmin() {
       setError(err?.message || 'Submit failed');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const backfillUnknownNames = async () => {
+    setBackfillNotice('');
+    setBackfillingNames(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/match/backfill-names`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await readJsonOrThrow(res, 'Backfill failed');
+      const remaining = Number(data.remaining || 0);
+      const updated = Number(data.updated || 0);
+      const checked = Number(data.checked || 0);
+      setBackfillNotice(`Checked ${checked} accounts, updated ${updated}, remaining ${remaining}.`);
+    } catch (err) {
+      setBackfillNotice(err?.message || 'Backfill failed');
+    } finally {
+      setBackfillingNames(false);
     }
   };
 
@@ -215,10 +269,13 @@ export function MatchAdmin() {
                 series_title: match.context?.series_title || '',
                 week: match.context?.week || '',
                 vod_link: match.context?.vod_link || '',
+                match_vod: match.context?.match_vod || '',
+                region: match.context?.region || '',
                 team_a: match.context?.team_a || '',
                 team_b: match.context?.team_b || '',
                 game_label: match.context?.game_label || '',
                 team_a_side: Number(match.team_a_side ?? 0),
+                winner_team: match.winner_team || 'team_a',
               });
               return;
             }
@@ -257,10 +314,13 @@ export function MatchAdmin() {
       series_title: match.context?.series_title || '',
       week: match.context?.week || '',
       vod_link: match.context?.vod_link || '',
+      match_vod: match.context?.match_vod || '',
+      region: match.context?.region || '',
       team_a: match.context?.team_a || '',
       team_b: match.context?.team_b || '',
       game_label: match.context?.game_label || '',
       team_a_side: Number(match.team_a_side ?? 0),
+      winner_team: match.winner_team || 'team_a',
     });
   };
 
@@ -279,6 +339,7 @@ export function MatchAdmin() {
           match_id: Number(editForm.match_id),
           week: Number(editForm.week),
           team_a_side: Number(editForm.team_a_side),
+          winner_team: editForm.winner_team,
         }),
       });
       const data = await readJsonOrThrow(res, 'Failed to save match edit');
@@ -298,6 +359,21 @@ export function MatchAdmin() {
         <p className="text-sm text-gray-400 mt-1">
           Build an event week, add sets, then enter all matches at once.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={backfillUnknownNames}
+            disabled={backfillingNames}
+            className="text-xs px-3 py-2 rounded border border-amber-500/50 text-amber-200 hover:bg-amber-700/20 disabled:opacity-50"
+          >
+            {backfillingNames ? 'Backfilling Names...' : 'Backfill Unknown Names'}
+          </button>
+          {backfillNotice && (
+            <div className="text-xs rounded border border-gray-700/60 bg-gray-900/40 px-3 py-2 text-gray-200">
+              {backfillNotice}
+            </div>
+          )}
+        </div>
       </div>
 
       <form onSubmit={submit} className="space-y-6">
@@ -351,6 +427,15 @@ export function MatchAdmin() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-3">
+              <label className="space-y-1 text-sm md:col-span-2">
+                <span className="text-gray-300">Set Title <span className="text-gray-500 font-normal">(optional)</span></span>
+                <input
+                  value={setItem.set_title || ''}
+                  onChange={(e) => updateSet(setIndex, (s) => ({ ...s, set_title: e.target.value }))}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  placeholder="e.g. Grand Finals"
+                />
+              </label>
               <label className="space-y-1 text-sm">
                 <span className="text-gray-300">Team A</span>
                 <input
@@ -371,11 +456,32 @@ export function MatchAdmin() {
                   required
                 />
               </label>
+              <label className="space-y-1 text-sm md:col-span-2">
+                <span className="text-gray-300">Set VOD Link (optional)</span>
+                <input
+                  value={setItem.vod_link || ''}
+                  onChange={(e) => updateSet(setIndex, (s) => ({ ...s, vod_link: e.target.value }))}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  placeholder="https://..."
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-gray-300">Region <span className="text-gray-500 font-normal">(optional)</span></span>
+                <select
+                  value={setItem.region || ''}
+                  onChange={(e) => updateSet(setIndex, (s) => ({ ...s, region: e.target.value }))}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                >
+                  <option value="">—</option>
+                  <option value="NA">NA</option>
+                  <option value="EU">EU</option>
+                </select>
+              </label>
             </div>
 
             <div className="space-y-2">
               {setItem.matches.map((match, matchIndex) => (
-                <div key={matchIndex} className="rounded-lg border border-gray-700/60 bg-gray-900/40 p-3 space-y-3">
+                <div key={matchIndex} className={`rounded-lg border p-3 space-y-3 ${match.skip ? 'border-yellow-700/50 bg-yellow-900/10' : 'border-gray-700/60 bg-gray-900/40'}`}>
                   <div className="grid md:grid-cols-12 gap-2 items-end">
                     <label className="md:col-span-4 space-y-1 text-sm">
                       <span className="text-gray-300">Match ID</span>
@@ -391,16 +497,21 @@ export function MatchAdmin() {
                       />
                     </label>
                     <label className="md:col-span-4 space-y-1 text-sm">
-                      <span className="text-gray-300">Winner (optional)</span>
-                      <input
+                      <span className="text-gray-300">{match.skip ? <span className="text-yellow-400">Winner (skipped)</span> : 'Winner (required)'}</span>
+                      <select
                         value={match.winner}
                         onChange={(e) => updateSet(setIndex, (s) => ({
                           ...s,
                           matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, winner: e.target.value } : m)),
                         }))}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
-                        placeholder="Team A / Team B / amber / sapphire"
-                      />
+                        className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white ${match.skip ? 'opacity-40 pointer-events-none' : ''}`}
+                        required={!match.skip}
+                        disabled={match.skip}
+                      >
+                        <option value="" className="text-gray-500">Select winner</option>
+                        <option value="Team A">Team A{setItem.team_a ? ` (${setItem.team_a})` : ''}</option>
+                        <option value="Team B">Team B{setItem.team_b ? ` (${setItem.team_b})` : ''}</option>
+                      </select>
                     </label>
                     <label className="md:col-span-3 space-y-1 text-sm">
                       <span className="text-gray-300">Game Label</span>
@@ -422,6 +533,17 @@ export function MatchAdmin() {
                         title="Load preview"
                       >
                         Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateSet(setIndex, (s) => ({
+                          ...s,
+                          matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, skip: !m.skip } : m)),
+                        }))}
+                        className={`text-xs px-2 py-2 rounded border ${match.skip ? 'border-yellow-500/60 bg-yellow-900/30 text-yellow-300' : 'border-yellow-700/40 text-yellow-600 hover:bg-yellow-900/20'}`}
+                        title={match.skip ? 'Mark as fetchable' : 'Mark as N/A (skip API fetch)'}
+                      >
+                        N/A
                       </button>
                       <button
                         type="button"
@@ -649,13 +771,34 @@ export function MatchAdmin() {
                   />
                 </label>
                 <label className="space-y-1 text-sm md:col-span-2">
-                  <span className="text-gray-300">VOD Link</span>
+                  <span className="text-gray-300">VOD Link <span className="text-gray-500 font-normal">(week-level)</span></span>
                   <input
                     value={editForm.vod_link}
                     onChange={(e) => setEditForm((prev) => ({ ...prev, vod_link: e.target.value }))}
                     className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
                     placeholder="https://..."
                   />
+                </label>
+                <label className="space-y-1 text-sm md:col-span-2">
+                  <span className="text-gray-300">Match VOD <span className="text-gray-500 font-normal">(game-level)</span></span>
+                  <input
+                    value={editForm.match_vod}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, match_vod: e.target.value }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    placeholder="https://..."
+                  />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-gray-300">Region <span className="text-gray-500 font-normal">(optional)</span></span>
+                  <select
+                    value={editForm.region || ''}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, region: e.target.value }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  >
+                    <option value="">—</option>
+                    <option value="NA">NA</option>
+                    <option value="EU">EU</option>
+                  </select>
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="text-gray-300">Team A</span>
@@ -693,6 +836,17 @@ export function MatchAdmin() {
                   >
                     <option value="0">Amber (0)</option>
                     <option value="1">Sapphire (1)</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="text-gray-300">Winner</span>
+                  <select
+                    value={editForm.winner_team || 'team_a'}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, winner_team: e.target.value }))}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  >
+                    <option value="team_a">Team A ({editForm.team_a || 'Team A'})</option>
+                    <option value="team_b">Team B ({editForm.team_b || 'Team B'})</option>
                   </select>
                 </label>
               </div>

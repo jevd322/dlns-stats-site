@@ -236,6 +236,16 @@ function MatchList() {
     );
   };
 
+  const getWeekDisplay = (match) => {
+    const dbWeek = match?.event_week;
+    const mappedWeek = weekMap[String(match?.match_id)];
+    const week = dbWeek != null ? dbWeek : mappedWeek;
+    if (week == null) return null;
+
+    const title = (match?.event_title || "Night Shift").trim() || "Night Shift";
+    return { title, week };
+  };
+
   if (error) {
     return (
       <div className="w-full p-8">
@@ -408,39 +418,42 @@ function MatchList() {
                   </td>
                 </tr>
               ) : (
-                matches.map((match) => (
-                  <tr
-                    key={match.match_id}
-                    className="border-b border-border-light text-gray-200 hover:bg-hover"
-                  >
-                    <td className="p-4 text-gray-400 text-sm">
-                      {weekMap[String(match.match_id)] != null ? (
+                matches.map((match) => {
+                  const weekDisplay = getWeekDisplay(match);
+                  return (
+                    <tr
+                      key={match.match_id}
+                      className="border-b border-border-light text-gray-200 hover:bg-hover"
+                    >
+                      <td className="p-4 text-gray-400 text-sm">
+                        {weekDisplay ? (
+                          <Link
+                            to={`/week/${weekDisplay.week}`}
+                            className="hover:underline hover:text-gray-200"
+                          >
+                            {weekDisplay.title} #{weekDisplay.week}
+                          </Link>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="p-4">
                         <Link
-                          to={`/week/${weekMap[String(match.match_id)]}`}
-                          className="hover:underline hover:text-gray-200"
+                          to={`/match/${match.match_id}`}
+                          className="text-blue-600 hover:underline"
                         >
-                          Night Shift #{weekMap[String(match.match_id)]}
+                          {match.match_id}
                         </Link>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <Link
-                        to={`/match/${match.match_id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {match.match_id}
-                      </Link>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {formatDate(match.start_time)}
-                      </div>
-                    </td>
-                    <td className="p-4">{teamName(match.winning_team)}</td>
-                    <td className="p-4">{renderTeamHeroes(match, 0)}</td>
-                    <td className="p-4">{renderTeamHeroes(match, 1)}</td>
-                  </tr>
-                ))
+                        <div className="text-xs text-gray-400 mt-1">
+                          {formatDate(match.start_time)}
+                        </div>
+                      </td>
+                      <td className="p-4">{teamName(match.winning_team)}</td>
+                      <td className="p-4">{renderTeamHeroes(match, 0)}</td>
+                      <td className="p-4">{renderTeamHeroes(match, 1)}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

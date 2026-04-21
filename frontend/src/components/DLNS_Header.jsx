@@ -19,10 +19,9 @@ function DLNS_Header({
   className = "" 
 }) {
   const navItems = [
-    { label: 'Home', href: '/' },
+    { label: 'Home', href: '/matchlist' },
     { label: 'Heroes', href: '/heroes' },
     { label: 'Stats', href: '/stats' },
-    { label: 'Admin', href: '/react-admin' },
     { label: 'Community', href: '#' },
   ];
 

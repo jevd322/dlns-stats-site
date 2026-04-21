@@ -346,6 +346,8 @@ CREATE TABLE IF NOT EXISTS matches (
 	event_team_b TEXT,
 	event_game TEXT,
 	event_team_a_ingame_side INTEGER,
+	match_vod TEXT,
+	event_region TEXT,
 	start_time TEXT,
   created_at TEXT
 );
@@ -457,6 +459,10 @@ def db_init(conn: sqlite3.Connection) -> bool:
 			large_table_change = True
 		if "event_team_a_ingame_side" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_team_a_ingame_side INTEGER")
+		if "match_vod" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN match_vod TEXT")
+		if "event_region" not in cols:
+			conn.execute("ALTER TABLE matches ADD COLUMN event_region TEXT")
 		conn.commit()
 	except Exception:
 		pass
@@ -489,6 +495,8 @@ def upsert_match(
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
 	event_team_a_ingame_side: Optional[int] = None,
+	match_vod: Optional[str] = None,
+	event_region: Optional[str] = None,
 ) -> None:
 	# Try to locate a start time from API payload with several fallback keys
 	st = (
@@ -500,9 +508,9 @@ def upsert_match(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -516,6 +524,8 @@ def upsert_match(
 			event_team_b,
 			event_game,
 			event_team_a_ingame_side,
+			match_vod or None,
+			event_region or None,
 			start_iso,
 			now_iso(),  # scraped time
 		),
@@ -877,6 +887,8 @@ async def upsert_match_async(
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
 	event_team_a_ingame_side: Optional[int] = None,
+	match_vod: Optional[str] = None,
+	event_region: Optional[str] = None,
 ) -> None:
 	st = (
 		mi.get("start_time")
@@ -887,9 +899,9 @@ async def upsert_match_async(
 	)
 	start_iso = parse_time_to_iso(st) or now_iso()
 	await conn.execute(
-		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at) "
-		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, start_time=excluded.start_time",
+		"INSERT INTO matches(match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, match_vod, event_region, start_time, created_at) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+		"ON CONFLICT(match_id) DO UPDATE SET duration_s=excluded.duration_s, winning_team=excluded.winning_team, match_outcome=excluded.match_outcome, game_mode=excluded.game_mode, match_mode=excluded.match_mode, event_title=excluded.event_title, event_week=excluded.event_week, event_team_a=excluded.event_team_a, event_team_b=excluded.event_team_b, event_game=excluded.event_game, event_team_a_ingame_side=excluded.event_team_a_ingame_side, match_vod=excluded.match_vod, event_region=excluded.event_region, start_time=excluded.start_time",
 		(
 			mi.get("match_id"),
 			extract_int(mi.get("duration_s")),
@@ -903,6 +915,8 @@ async def upsert_match_async(
 			event_team_b,
 			event_game,
 			event_team_a_ingame_side,
+			match_vod or None,
+			event_region or None,
 			start_iso,
 			now_iso(),
 		),
@@ -1301,6 +1315,8 @@ def read_match_plan_file(path: Path) -> Tuple[List[int], Dict[int, Dict[str, Any
 								"event_team_b": team_b,
 								"event_game": game_label,
 								"event_team_a_ingame_side": team_a_side,
+								"match_vod": _clean_str(series.get("match_vod")),
+								"event_region": _clean_str(series.get("region")),
 							}
 					except (TypeError, ValueError):
 						# Skip invalid placeholders such as "No Match".
@@ -1325,6 +1341,8 @@ def process_match_into_db(
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
 	event_team_a_ingame_side: Optional[int] = None,
+	match_vod: Optional[str] = None,
+	event_region: Optional[str] = None,
 ) -> None:
 	match_info = fetch_match_metadata(match_id)
 
@@ -1338,6 +1356,8 @@ def process_match_into_db(
 		event_team_b=event_team_b,
 		event_game=event_game,
 		event_team_a_ingame_side=event_team_a_ingame_side,
+		match_vod=match_vod,
+		event_region=event_region,
 	)
 
 	# Resolve names for all players (cached + API as needed)
@@ -1374,6 +1394,8 @@ async def process_match_into_db_async(
 	event_team_b: Optional[str] = None,
 	event_game: Optional[str] = None,
 	event_team_a_ingame_side: Optional[int] = None,
+	match_vod: Optional[str] = None,
+	event_region: Optional[str] = None,
 ) -> None:
 	match_info = await asyncio.to_thread(fetch_match_metadata, match_id)
 
@@ -1396,6 +1418,8 @@ async def process_match_into_db_async(
 			event_team_b=event_team_b,
 			event_game=event_game,
 			event_team_a_ingame_side=event_team_a_ingame_side,
+			match_vod=match_vod,
+			event_region=event_region,
 		)
 
 		for p in players:
@@ -1447,6 +1471,8 @@ async def run_match_ingest_async(
 					event_team_b=ctx.get("event_team_b"),
 					event_game=ctx.get("event_game"),
 					event_team_a_ingame_side=ctx.get("event_team_a_ingame_side"),
+					match_vod=ctx.get("match_vod"),
+					event_region=ctx.get("event_region"),
 				)
 				async with cache_lock:
 					save_json(cache_path, cache)
