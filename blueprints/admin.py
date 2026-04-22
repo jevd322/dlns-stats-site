@@ -372,7 +372,8 @@ def _upsert_matches_json(
         for item in items:
             team_a = item["team_a"]
             team_b = item["team_b"]
-            match_id = int(item["match_id"])
+            raw_mid = item["match_id"]
+            match_id = int(raw_mid) if raw_mid is not None else None
             game_label = item["game_label"]
             team_a_side = item["team_a_side"]
             set_vod_link = (item.get("set_vod_link") or "").strip()
@@ -400,16 +401,19 @@ def _upsert_matches_json(
                 game_obj["title"] = set_title
 
             matches = game_obj.setdefault("matches", [])
-            existing = next((m for m in matches if int(m.get("match_id", -1)) == match_id), None)
+            if match_id is None:
+                # No ID available — append as a placeholder if not already present
+                existing = None
+            else:
+                existing = next((m for m in matches if m.get("match_id") is not None and int(m.get("match_id", -1)) == match_id), None)
             if existing:
                 existing["game"] = game_label
                 existing["team_a_side"] = int(team_a_side)
             else:
-                matches.append({
-                    "game": game_label,
-                    "match_id": match_id,
-                    "team_a_side": int(team_a_side),
-                })
+                entry: Dict[str, Any] = {"game": game_label, "team_a_side": int(team_a_side)}
+                if match_id is not None:
+                    entry["match_id"] = match_id
+                matches.append(entry)
 
         tmp = matches_path.with_suffix(".json.tmp")
         with tmp.open("w", encoding="utf-8") as f:
@@ -424,143 +428,184 @@ def _run_bulk_submit_job(job_id: str, payload: Dict[str, Any], app_obj: Any) -> 
 
             db_path = Path(current_app.config.get("DB_PATH", "./data/dlns.sqlite3"))
             conn = db_connect(db_path)
-            db_init(conn)
-            matches_path = Path(current_app.root_path) / "matches.json"
-            user_cache_path = db_path.parent / "user_cache.json"
-            user_cache = load_json(user_cache_path, {}) or {}
+            try:
+                db_init(conn)
+                matches_path = Path(current_app.root_path) / "matches.json"
+                user_cache_path = db_path.parent / "user_cache.json"
+                user_cache = load_json(user_cache_path, {}) or {}
 
-            series_title = payload["title"]
-            week = int(payload["week"])
-            vod_link = (payload.get("vod_link") or "").strip()
-            sets = payload["sets"]
+                series_title = payload["title"]
+                week = int(payload["week"])
+                vod_link = (payload.get("vod_link") or "").strip()
+                sets = payload["sets"]
 
-            account_ids: set[int] = set()
-            matches_for_json: List[Dict[str, Any]] = []
+                account_ids: set[int] = set()
+                matches_for_json: List[Dict[str, Any]] = []
 
-            for set_item in sets:
-                team_a = set_item["team_a"]
-                team_b = set_item["team_b"]
-                matches = set_item["matches"]
-                set_vod_link = (set_item.get("vod_link") or "").strip()
-                set_region = (set_item.get("region") or "").strip()
-                set_title = (set_item.get("set_title") or "").strip()
-                for idx, match in enumerate(matches, start=1):
-                    match_id = int(match["match_id"])
-                    winner_hint = match.get("winner")
-                    game_label = (match.get("game") or f"Game {idx}").strip()
-                    is_skip = bool(match.get("skip"))
-
-                    if is_skip:
+                for set_item in sets:
+                    team_a = set_item["team_a"]
+                    team_b = set_item["team_b"]
+                    matches = set_item["matches"]
+                    set_vod_link = (set_item.get("vod_link") or "").strip()
+                    set_region = (set_item.get("region") or "").strip()
+                    set_title = (set_item.get("set_title") or "").strip()
+                    for idx, match in enumerate(matches, start=1):
+                        raw_mid = match.get("match_id")
+                        winner_hint = match.get("winner")
+                        game_label = (match.get("game") or f"Game {idx}").strip()
+                        is_skip = bool(match.get("skip"))
+    
+                        if is_skip:
+                            skip_match_id = int(raw_mid) if raw_mid not in (None, "") else None
+                            # Resolve winner to winning_team (team_a_side fixed at 0)
+                            winner_norm = (winner_hint or "").strip().lower().replace("-", " ")
+                            a_norm = team_a.strip().lower()
+                            if winner_norm in {"team_a", "team a", "a", a_norm}:
+                                placeholder_winning_team, placeholder_side = 0, 0
+                            else:
+                                placeholder_winning_team, placeholder_side = 1, 0
+                            # Generate unique negative match_id if none provided
+                            if skip_match_id is None:
+                                import time as _time
+                                skip_match_id = -(int(_time.time() * 1000) % (10 ** 12))
+                            # Only insert a placeholder row for negative (synthetic) IDs.
+                            # If the user provided a real positive match_id, don't overwrite
+                            # whatever real data already exists in the DB.
+                            if skip_match_id < 0:
+                                placeholder_mi = {
+                                    "match_id": skip_match_id,
+                                    "duration_s": None,
+                                    "winning_team": placeholder_winning_team,
+                                    "match_outcome": None,
+                                    "game_mode": None,
+                                    "match_mode": None,
+                                    "start_time": None,
+                                    "players": [],
+                                }
+                                upsert_match(
+                                    conn,
+                                    placeholder_mi,
+                                    event_title=series_title,
+                                    event_week=week,
+                                    event_team_a=team_a,
+                                    event_team_b=team_b,
+                                    event_game=game_label,
+                                    event_team_a_ingame_side=placeholder_side,
+                                    match_vod=set_vod_link or None,
+                                    event_region=set_region or None,
+                                )
+                            matches_for_json.append(
+                                {
+                                    "team_a": team_a,
+                                    "team_b": team_b,
+                                    "match_id": skip_match_id,
+                                    "game_label": game_label,
+                                    "team_a_side": placeholder_side,
+                                    "set_vod_link": set_vod_link,
+                                    "region": set_region,
+                                    "set_title": set_title,
+                                }
+                            )
+                            continue
+    
+                        match_id = int(raw_mid)
+                        try:
+                            mi = fetch_match_metadata(match_id)
+                        except SkipMatchSilent:
+                            raise ValueError(f"Match {match_id} is not indexed by the API yet.")
+    
+                        players = mi.get("players") or []
+                        if not isinstance(players, list) or not players:
+                            raise ValueError(f"Match {match_id} returned no players.")
+    
+                        # Resolve player names so user rows are not overwritten as "Unknown".
+                        player_account_ids: List[int] = []
+                        for player in players:
+                            account_id = player.get("account_id")
+                            if account_id is None:
+                                continue
+                            try:
+                                player_account_ids.append(int(account_id))
+                            except Exception:
+                                pass
+    
+                        name_by_id: Dict[int, str] = {}
+                        if STEAM_API_KEY and player_account_ids:
+                            try:
+                                name_by_id = resolve_names_with_cache(player_account_ids, user_cache, STEAM_API_KEY)
+                            except Exception:
+                                # Non-fatal: ingest should still continue with existing DB/cache names.
+                                name_by_id = {}
+    
+                        if player_account_ids:
+                            placeholders = ",".join("?" * len(player_account_ids))
+                            rows = conn.execute(
+                                f"SELECT account_id, persona_name FROM users WHERE account_id IN ({placeholders})",
+                                tuple(player_account_ids),
+                            ).fetchall()
+                            for row in rows:
+                                try:
+                                    aid = int(row[0])
+                                except Exception:
+                                    continue
+                                pname = row[1]
+                                if pname:
+                                    name_by_id.setdefault(aid, str(pname))
+    
+                        side = _winner_hint_to_team_a_side(
+                            winner_hint,
+                            team_a,
+                            team_b,
+                            mi.get("winning_team"),
+                        )
+                        if side is None:
+                            side = _detect_team_a_side_from_history(conn, players, team_a)
+                        if side is None:
+                            raise ValueError(
+                                f"Could not determine team_a_side for match {match_id}. "
+                                "Set winner explicitly for this match (team name, amber, or sapphire)."
+                            )
+    
+                        upsert_match(
+                            conn,
+                            mi,
+                            event_title=series_title,
+                            event_week=week,
+                            event_team_a=team_a,
+                            event_team_b=team_b,
+                            event_game=game_label,
+                            event_team_a_ingame_side=side,
+                            match_vod=set_vod_link or None,
+                            event_region=set_region or None,
+                        )
+    
+                        winning_team = mi.get("winning_team")
+                        for player in players:
+                            account_id = player.get("account_id")
+                            if account_id is not None:
+                                try:
+                                    account_ids.add(int(account_id))
+                                except Exception:
+                                    pass
+                            upsert_player(conn, match_id, player, winning_team, name_by_id)
+    
                         matches_for_json.append(
                             {
                                 "team_a": team_a,
                                 "team_b": team_b,
                                 "match_id": match_id,
                                 "game_label": game_label,
-                                "team_a_side": 0,
+                                "team_a_side": int(side),
                                 "set_vod_link": set_vod_link,
                                 "region": set_region,
                                 "set_title": set_title,
                             }
                         )
-                        continue
-
-                    try:
-                        mi = fetch_match_metadata(match_id)
-                    except SkipMatchSilent:
-                        raise ValueError(f"Match {match_id} is not indexed by the API yet.")
-
-                    players = mi.get("players") or []
-                    if not isinstance(players, list) or not players:
-                        raise ValueError(f"Match {match_id} returned no players.")
-
-                    # Resolve player names so user rows are not overwritten as "Unknown".
-                    player_account_ids: List[int] = []
-                    for player in players:
-                        account_id = player.get("account_id")
-                        if account_id is None:
-                            continue
-                        try:
-                            player_account_ids.append(int(account_id))
-                        except Exception:
-                            pass
-
-                    name_by_id: Dict[int, str] = {}
-                    if STEAM_API_KEY and player_account_ids:
-                        try:
-                            name_by_id = resolve_names_with_cache(player_account_ids, user_cache, STEAM_API_KEY)
-                        except Exception:
-                            # Non-fatal: ingest should still continue with existing DB/cache names.
-                            name_by_id = {}
-
-                    if player_account_ids:
-                        placeholders = ",".join("?" * len(player_account_ids))
-                        rows = conn.execute(
-                            f"SELECT account_id, persona_name FROM users WHERE account_id IN ({placeholders})",
-                            tuple(player_account_ids),
-                        ).fetchall()
-                        for row in rows:
-                            try:
-                                aid = int(row[0])
-                            except Exception:
-                                continue
-                            pname = row[1]
-                            if pname:
-                                name_by_id.setdefault(aid, str(pname))
-
-                    side = _winner_hint_to_team_a_side(
-                        winner_hint,
-                        team_a,
-                        team_b,
-                        mi.get("winning_team"),
-                    )
-                    if side is None:
-                        side = _detect_team_a_side_from_history(conn, players, team_a)
-                    if side is None:
-                        raise ValueError(
-                            f"Could not determine team_a_side for match {match_id}. "
-                            "Set winner explicitly for this match (team name, amber, or sapphire)."
-                        )
-
-                    upsert_match(
-                        conn,
-                        mi,
-                        event_title=series_title,
-                        event_week=week,
-                        event_team_a=team_a,
-                        event_team_b=team_b,
-                        event_game=game_label,
-                        event_team_a_ingame_side=side,
-                        match_vod=set_vod_link or None,
-                        event_region=set_region or None,
-                    )
-
-                    winning_team = mi.get("winning_team")
-                    for player in players:
-                        account_id = player.get("account_id")
-                        if account_id is not None:
-                            try:
-                                account_ids.add(int(account_id))
-                            except Exception:
-                                pass
-                        upsert_player(conn, match_id, player, winning_team, name_by_id)
-
-                    matches_for_json.append(
-                        {
-                            "team_a": team_a,
-                            "team_b": team_b,
-                            "match_id": match_id,
-                            "game_label": game_label,
-                            "team_a_side": int(side),
-                            "set_vod_link": set_vod_link,
-                            "region": set_region,
-                            "set_title": set_title,
-                        }
-                    )
-
-            recompute_user_stats_bulk(conn, list(account_ids))
-            conn.commit()
-            conn.close()
+    
+                recompute_user_stats_bulk(conn, list(account_ids))
+                conn.commit()
+            finally:
+                conn.close()
 
             try:
                 save_json(user_cache_path, user_cache)
@@ -680,13 +725,18 @@ def admin_bulk_submit():
         if not isinstance(matches, list) or not matches:
             return jsonify({'ok': False, 'error': 'Each set needs at least one match'}), 400
         for match_idx, m in enumerate(matches, start=1):
+            if m.get('skip'):
+                # N/A matches: winner still required, match_id optional
+                winner = (m.get('winner') or '').strip()
+                if not winner:
+                    return jsonify({'ok': False, 'error': f'Set {set_idx}, match {match_idx}: winner is required even for N/A matches.'}), 400
+                if _winner_hint_to_team_a_side(winner, team_a, team_b, 0) is None:
+                    return jsonify({'ok': False, 'error': f'Set {set_idx}, match {match_idx}: invalid winner "{winner}". Accepted: {team_a}, {team_b}, Team A, Team B, A, B.'}), 400
+                continue
             try:
                 int(m.get('match_id'))
             except Exception:
-                return jsonify({'ok': False, 'error': 'Every match requires a numeric match_id'}), 400
-
-            if m.get('skip'):
-                continue
+                return jsonify({'ok': False, 'error': 'Every non-skipped match requires a numeric match_id'}), 400
 
             winner = (m.get('winner') or '').strip()
             if not winner:

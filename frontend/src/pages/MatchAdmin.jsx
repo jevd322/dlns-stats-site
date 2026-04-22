@@ -153,8 +153,7 @@ export function MatchAdmin() {
       for (let matchIndex = 0; matchIndex < (setItem.matches || []).length; matchIndex += 1) {
         const match = setItem.matches[matchIndex];
         const hasMatchId = String(match.match_id || '').trim();
-        if (!hasMatchId) continue;
-        if (match.skip) continue;
+        if (!hasMatchId && !match.skip) continue;
 
         const winner = (match.winner || '').trim();
         if (!winner) {
@@ -182,9 +181,9 @@ export function MatchAdmin() {
         vod_link: (s.vod_link || '').trim(),
         region: (s.region || '').trim(),
         matches: s.matches
-          .filter((m) => String(m.match_id || '').trim())
+          .filter((m) => m.skip || String(m.match_id || '').trim())
           .map((m, idx) => ({
-            match_id: Number(m.match_id),
+            match_id: m.skip && !String(m.match_id || '').trim() ? null : Number(m.match_id),
             winner: m.winner.trim(),
             game: m.game.trim() || `Game ${idx + 1}`,
             skip: m.skip || false,
@@ -491,22 +490,21 @@ export function MatchAdmin() {
                           ...s,
                           matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, match_id: e.target.value } : m)),
                         }))}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
-                        placeholder="75968492"
-                        required
+                        className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white ${match.skip ? 'opacity-50' : ''}`}
+                        placeholder={match.skip ? 'N/A — no ID' : '75968492'}
+                        required={!match.skip}
                       />
                     </label>
                     <label className="md:col-span-4 space-y-1 text-sm">
-                      <span className="text-gray-300">{match.skip ? <span className="text-yellow-400">Winner (skipped)</span> : 'Winner (required)'}</span>
+                      <span className="text-gray-300">{match.skip ? <span className="text-yellow-400">Winner (N/A match)</span> : 'Winner (required)'}</span>
                       <select
                         value={match.winner}
                         onChange={(e) => updateSet(setIndex, (s) => ({
                           ...s,
                           matches: s.matches.map((m, i) => (i === matchIndex ? { ...m, winner: e.target.value } : m)),
                         }))}
-                        className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white ${match.skip ? 'opacity-40 pointer-events-none' : ''}`}
-                        required={!match.skip}
-                        disabled={match.skip}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                        required
                       >
                         <option value="" className="text-gray-500">Select winner</option>
                         <option value="Team A">Team A{setItem.team_a ? ` (${setItem.team_a})` : ''}</option>

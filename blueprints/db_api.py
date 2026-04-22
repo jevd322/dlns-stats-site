@@ -171,6 +171,7 @@ def stats_overview():
                 MIN(CASE WHEN duration_s > 0 THEN duration_s END) as min_duration
             FROM matches
             WHERE event_title = ?
+              AND match_id > 0
         """
         params = (event_title,)
     else:
@@ -183,6 +184,7 @@ def stats_overview():
                 MAX(duration_s) as max_duration,
                 MIN(CASE WHEN duration_s > 0 THEN duration_s END) as min_duration
             FROM matches
+            WHERE match_id > 0
         """
         params = ()
     with get_ro_conn() as conn:
@@ -210,7 +212,7 @@ def stats_weekly():
                     100.0 * SUM(CASE WHEN winning_team = 0 THEN 1 ELSE 0 END) / COUNT(*), 1
                 ) as amber_win_pct
             FROM matches
-            WHERE event_title = ? AND event_week IS NOT NULL
+            WHERE event_title = ? AND event_week IS NOT NULL AND match_id > 0
             GROUP BY event_week
             ORDER BY event_week ASC
             """,
@@ -327,7 +329,7 @@ def latest_matches():  # type: ignore
     with get_ro_conn() as conn:
         cur = conn.execute(
             "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at "
-            "FROM matches ORDER BY created_at DESC LIMIT ?",
+            "FROM matches WHERE match_id > 0 AND duration_s IS NOT NULL ORDER BY created_at DESC LIMIT ?",
             (limit,),
         )
         data = _rows_to_dicts(cur)
@@ -356,7 +358,7 @@ def latest_matches_paged():  # type: ignore
     params = []
     sql_base = "FROM matches m"
     joins = ""
-    conds = []
+    conds = ["m.match_id > 0", "m.duration_s IS NOT NULL"]
     if team in ("0", "1"):
         conds.append("m.winning_team = ?")
         params.append(int(team))

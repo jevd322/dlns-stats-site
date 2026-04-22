@@ -119,6 +119,41 @@ function SeriesDetail() {
           const teamAWon = hasSide ? winningTeam === side : null;
           const teamBWon = hasSide ? winningTeam !== side && winningTeam != null : null;
 
+          const isPlaceholder = match.match_id < 0;
+
+          if (isPlaceholder) {
+            const placeholderSide = match.event_team_a_ingame_side ?? 0;
+            const placeholderWinner =
+              match.winning_team === placeholderSide ? event_team_a : event_team_b;
+            return (
+              <div
+                key={match.match_id}
+                className="bg-gray-800/30 border border-dashed border-gray-600/50 rounded-lg overflow-hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700/40 bg-gray-900/30">
+                  <div className="flex flex-col">
+                    <span className="text-gray-500 text-xs italic">No match data recorded</span>
+                    <span className="text-gray-600 font-semibold text-sm">{match.event_game}</span>
+                  </div>
+                  {match.match_vod && (
+                    <a href={match.match_vod} target="_blank" rel="noopener noreferrer"
+                       className="text-purple-400 hover:underline text-xs">
+                      Watch VOD ↗
+                    </a>
+                  )}
+                </div>
+                <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                  <p className="text-gray-400">
+                    Winner: <span className="font-semibold text-green-400">{placeholderWinner}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-600 italic">
+                    Match was not recorded by game servers
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div
               key={match.match_id}
