@@ -353,7 +353,7 @@ function HeroDetail() {
                 {(showMoreWith ? effectiveWith : effectiveWith.slice(0, 5)).map((h) => (
                   <Link
                     key={h.hero_id}
-                    to={`/heroes/${h.hero_id}`}
+                    to={`/hero/${h.hero_id}`}
                     className="flex items-center gap-3 hover:bg-slate-700 rounded px-2 py-1 transition-colors"
                   >
                     <img
@@ -393,7 +393,7 @@ function HeroDetail() {
                 {(showMoreAgainst ? effectiveAgainst : effectiveAgainst.slice(0, 5)).map((h) => (
                   <Link
                     key={h.hero_id}
-                    to={`/heroes/${h.hero_id}`}
+                    to={`/hero/${h.hero_id}`}
                     className="flex items-center gap-3 hover:bg-slate-700 rounded px-2 py-1 transition-colors"
                   >
                     <img

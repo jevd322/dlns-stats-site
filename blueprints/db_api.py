@@ -328,8 +328,8 @@ def latest_matches():  # type: ignore
     limit = int(current_app.config.get("API_LATEST_LIMIT", 50))
     with get_ro_conn() as conn:
         cur = conn.execute(
-            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, start_time, created_at "
-            "FROM matches WHERE match_id > 0 AND duration_s IS NOT NULL ORDER BY created_at DESC LIMIT ?",
+            "SELECT match_id, duration_s, winning_team, match_outcome, game_mode, match_mode, event_title, event_week, event_team_a, event_team_b, event_game, event_team_a_ingame_side, start_time, created_at "
+            "FROM matches ORDER BY created_at DESC LIMIT ?",
             (limit,),
         )
         data = _rows_to_dicts(cur)
@@ -398,7 +398,7 @@ def latest_matches_paged():  # type: ignore
         ccur = conn.execute(f"SELECT COUNT(DISTINCT m.match_id) {sql_base}{joins}{where}", tuple(params))
         total = ccur.fetchone()[0]
         cur = conn.execute(
-            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.start_time, m.created_at {sql_base}{joins}{where} "
+            f"SELECT DISTINCT m.match_id, m.duration_s, m.winning_team, m.match_outcome, m.game_mode, m.match_mode, m.event_title, m.event_week, m.event_team_a, m.event_team_b, m.event_game, m.event_team_a_ingame_side, m.start_time, m.created_at {sql_base}{joins}{where} "
             f"ORDER BY COALESCE(m.start_time, m.created_at) {'ASC' if order == 'asc' else 'DESC'} LIMIT ? OFFSET ?",
             tuple(params + [per_page, offset])
         )
