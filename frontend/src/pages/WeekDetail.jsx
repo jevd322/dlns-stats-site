@@ -25,7 +25,9 @@ function StatPill({ label, value, accent }) {
 }
 
 function MatchRow({ match }) {
-  const winner =
+  const teamAName = match.event_team_a || "Team A";
+  const teamBName = match.event_team_b || "Team B";
+  const winnerSide =
     match.winning_team === 0 ? "amber" : match.winning_team === 1 ? "sapphire" : null;
 
   return (
@@ -36,9 +38,9 @@ function MatchRow({ match }) {
       {/* coloured win indicator */}
       <div
         className={`w-1 self-stretch rounded-full shrink-0 ${
-          winner === "amber"
+          winnerSide === "amber"
             ? "bg-amber-400"
-            : winner === "sapphire"
+            : winnerSide === "sapphire"
             ? "bg-blue-400"
             : "bg-gray-600"
         }`}
@@ -46,12 +48,8 @@ function MatchRow({ match }) {
 
       <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         {/* Team A */}
-        <span
-          className={`text-sm font-semibold truncate text-right ${
-            winner === "amber" ? "text-amber-300" : "text-gray-300"
-          }`}
-        >
-          {match.event_team_a || "Amber"}
+        <span className="text-sm font-semibold truncate text-right text-gray-200">
+          {teamAName}
         </span>
 
         {/* Game label / score centre */}
@@ -63,12 +61,8 @@ function MatchRow({ match }) {
         </div>
 
         {/* Team B */}
-        <span
-          className={`text-sm font-semibold truncate ${
-            winner === "sapphire" ? "text-blue-300" : "text-gray-300"
-          }`}
-        >
-          {match.event_team_b || "Sapphire"}
+        <span className="text-sm font-semibold truncate text-gray-200">
+          {teamBName}
         </span>
       </div>
 

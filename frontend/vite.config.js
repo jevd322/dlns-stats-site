@@ -23,6 +23,7 @@ export default defineConfig({
         hero_detail: path.resolve(__dirname, 'src/entries/hero_detail.entry.jsx'),
         stats: path.resolve(__dirname, 'src/entries/stats.entry.jsx'),
         items: path.resolve(__dirname, 'src/entries/items.entry.jsx'),
+        match_admin: path.resolve(__dirname, 'src/entries/match_admin.entry.jsx'),
       },
       output: {
         entryFileNames: '[name].js',
@@ -50,6 +51,14 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/dlns': {
+        target: 'http://127.0.0.1:5050',
+        changeOrigin: true,
+      },
+      '/admin': {
+        target: 'http://127.0.0.1:5050',
+        changeOrigin: true,
+      },
+      '/auth': {
         target: 'http://127.0.0.1:5050',
         changeOrigin: true,
       },

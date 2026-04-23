@@ -13,6 +13,7 @@ import SeriesDetail from './pages/SeriesDetail';
 import TeamsList from './pages/TeamsList';
 import TeamDetail from './pages/TeamDetail';
 import WeekDetail from './pages/WeekDetail';
+import ReactAdmin from './pages/ReactAdmin';
 import { SoundLibrary } from './pages/sounds.jsx';
 import { SoundsDev } from './pages/dev.jsx';
 import { VoHub } from './pages/vo.jsx';
@@ -85,6 +86,7 @@ function App() {
             <Route path="/team/:teamName" element={<TeamDetail />} />
             <Route path="/week" element={<WeekDetail />} />
             <Route path="/week/:week" element={<WeekDetail />} />
+            <Route path="/react-admin" element={<ReactAdmin />} />
             <Route path="/sounds" element={<SoundLibrary />} />
             <Route path="/sounds-dev" element={<SoundsDev />} />
             <Route path="/vo" element={<VoHub />} />

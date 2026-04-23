@@ -58,6 +58,13 @@ def get_admin_ids():
         return [admin_id.strip() for admin_id in admin_ids.split(',') if admin_id.strip()]
     return []
 
+def get_match_submitter_ids():
+    """Get Discord IDs allowed to submit matches from environment"""
+    submitter_ids = os.getenv('MATCH_SUBMITTERS', '')
+    if submitter_ids:
+        return [submitter_id.strip() for submitter_id in submitter_ids.split(',') if submitter_id.strip()]
+    return []
+
 def is_owner(user_id=None):
     """Check if user is the owner"""
     if user_id is None:
@@ -83,6 +90,20 @@ def is_admin(user_id=None):
     
     admin_ids = get_admin_ids()
     return str(user_id) in [str(admin_id) for admin_id in admin_ids]
+
+def has_submit_perms(user_id=None):
+    """Check if user can submit matches (owner/admin or in MATCH_SUBMITTERS)"""
+    if user_id is None:
+        user = get_current_user()
+        if not user:
+            return False
+        user_id = user['id']
+
+    if is_admin(user_id):
+        return True
+
+    submitter_ids = get_match_submitter_ids()
+    return str(user_id) in [str(submitter_id) for submitter_id in submitter_ids]
 
 def require_owner(f):
     """Decorator to require owner privileges"""
@@ -111,6 +132,21 @@ def require_admin(f):
             flash('Admin privileges required.', 'error')
             return redirect(url_for('index'))
         
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_submit_perms(f):
+    """Decorator to require match submit privileges"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_logged_in():
+            flash('Please log in to access this page.', 'warning')
+            return redirect(url_for('auth.login'))
+
+        if not has_submit_perms():
+            flash('Match submit privileges required.', 'error')
+            return redirect(url_for('index'))
+
         return f(*args, **kwargs)
     return decorated_function
 

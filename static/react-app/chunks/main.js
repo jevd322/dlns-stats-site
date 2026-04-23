@@ -1,1 +1,1 @@
-import{C as e,E as t,T as n,w as r}from"./api.js";import{t as i}from"./App.js";var a=t(n(),1),o=t(r(),1),s=e(),c=document.getElementById(`root`);c&&o.createRoot(c).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));
+import{i as e,n as t,r as n,t as r}from"./jsx-runtime.js";import{t as i}from"./App.js";var a=e(n(),1),o=e(t(),1),s=r(),c=document.getElementById(`root`);c&&o.createRoot(c).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));

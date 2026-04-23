@@ -9,6 +9,7 @@ function MatchDetail() {
     previous_match_id: null,
     next_match_id: null,
   });
+  const [weekMeta, setWeekMeta] = useState(null);
   const [heroes, setHeroes] = useState({});
   const [itemsByPlayer, setItemsByPlayer] = useState({});
   const [loading, setLoading] = useState(true);
@@ -19,6 +20,7 @@ function MatchDetail() {
     fetchMatchPlayers();
     fetchAdjacentMatches();
     fetchMatchItems();
+    fetchWeekMeta();
   }, [matchId]);
 
   const fetchHeroes = async () => {
@@ -73,6 +75,24 @@ function MatchDetail() {
     }
   };
 
+  const fetchWeekMeta = async () => {
+    try {
+      const response = await fetch('/db/weeks');
+      if (!response.ok) return;
+      const data = await response.json();
+      const key = String(matchId);
+      const details = data?.details?.[key] || null;
+      const week = details?.week ?? data?.weeks?.[key] ?? null;
+      setWeekMeta({
+        title: data?.title || null,
+        series: details?.series || null,
+        week,
+      });
+    } catch (err) {
+      console.error('Failed to fetch week metadata:', err);
+    }
+  };
+
   const getLocalItemImage = (item) => {
     if (!item.name) return null;
     const filename = item.name.toLowerCase().replace(/ /g, "_") + "_psd.png";
@@ -94,10 +114,6 @@ function MatchDetail() {
 
   const previousMatchId = adjacentMatches.previous_match_id;
   const nextMatchId = adjacentMatches.next_match_id;
-
-  const teamName = (team) => {
-    return team === 0 ? "Amber" : team === 1 ? "Sapphire" : "Unknown";
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -156,9 +172,24 @@ function MatchDetail() {
   const amberPlayers = players.filter((p) => p.team === 0);
   const sapphirePlayers = players.filter((p) => p.team === 1);
 
-  // Derive winning team from player results (each player has result: "Win"|"Loss" and team: 0|1)
+  // Resolve winning side from match metadata first; fallback to player results if needed.
   const winnerPlayer = players.find((p) => p.result === "Win");
-  const winningTeam = winnerPlayer != null ? winnerPlayer.team : null;
+  const winningTeam =
+    adjacentMatches.winning_team != null
+      ? Number(adjacentMatches.winning_team)
+      : winnerPlayer != null
+        ? winnerPlayer.team
+        : null;
+
+  // event_team_a_ingame_side tells which in-game side Team A played on (0 Amber, 1 Sapphire).
+  const teamASide =
+    adjacentMatches.event_team_a_ingame_side != null
+      ? Number(adjacentMatches.event_team_a_ingame_side)
+      : 0;
+  const eventTeamA = adjacentMatches.event_team_a || null;
+  const eventTeamB = adjacentMatches.event_team_b || null;
+  const amberTeamName = teamASide === 0 ? (eventTeamA || eventTeamB) : (eventTeamB || eventTeamA);
+  const sapphireTeamName = teamASide === 0 ? (eventTeamB || eventTeamA) : (eventTeamA || eventTeamB);
 
   // Per-column maximums across all players (for highlight)
   const maxOf = (field) => Math.max(0, ...players.map((p) => p[field] || 0));
@@ -170,6 +201,11 @@ function MatchDetail() {
   const maxHealing = maxOf("player_healing");
 
   const isMax = (val, max) => max > 0 && (val || 0) === max;
+
+  const displayEventTitle =
+    adjacentMatches.event_title || weekMeta?.series || weekMeta?.title || null;
+  const displayEventWeek =
+    adjacentMatches.event_week != null ? adjacentMatches.event_week : weekMeta?.week;
 
   return (
     <div className="w-full p-8">
@@ -225,17 +261,17 @@ function MatchDetail() {
         </div>
 
         <div className="flex flex-col items-end justify-end">
-          {adjacentMatches.event_title && (
+          {displayEventTitle && (
             <p className="text-gray-300 text-lg font-semibold mb-1">
-              {adjacentMatches.event_week != null ? (
+              {displayEventWeek != null ? (
                 <Link
-                  to={`/week/${adjacentMatches.event_week}`}
+                  to={`/week/${displayEventWeek}`}
                   className="hover:underline"
                 >
-                  {adjacentMatches.event_title} #{adjacentMatches.event_week}
+                  {displayEventTitle} #{displayEventWeek}
                 </Link>
               ) : (
-                adjacentMatches.event_title
+                displayEventTitle
               )}
             </p>
           )}
@@ -265,10 +301,10 @@ function MatchDetail() {
               <tr className="border-b h-10">
                 <th className="text-left py-3 w-50 relative overflow-visible align-bottom">
                   <div className="absolute bottom-0 left-2 flex items-end gap-3 pb-1 pointer-events-none">
-                    {adjacentMatches.event_team_a && (
-                      <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_a)}`} className="pointer-events-auto">
+                    {amberTeamName && (
+                      <Link to={`/team/${encodeURIComponent(amberTeamName)}`} className="pointer-events-auto">
                         <h2 className="text-amber-300 text-2xl font-bold mb-2 uppercase hover:underline">
-                          {adjacentMatches.event_team_a}
+                          {amberTeamName}
                         </h2>
                       </Link>
                     )}
@@ -442,10 +478,10 @@ function MatchDetail() {
               <tr className="border-b h-10">
                 <th className="text-left py-3 w-50 relative overflow-visible align-bottom">
                   <div className="absolute bottom-0 left-2 flex items-end gap-3 pb-1 pointer-events-none">
-                    {adjacentMatches.event_team_b && (
-                      <Link to={`/team/${encodeURIComponent(adjacentMatches.event_team_b)}`} className="pointer-events-auto">
+                    {sapphireTeamName && (
+                      <Link to={`/team/${encodeURIComponent(sapphireTeamName)}`} className="pointer-events-auto">
                         <h2 className="text-team-sapphire text-2xl font-bold mb-2 uppercase hover:underline">
-                          {adjacentMatches.event_team_b}
+                          {sapphireTeamName}
                         </h2>
                       </Link>
                     )}
