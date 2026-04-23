@@ -459,10 +459,7 @@ def db_init(conn: sqlite3.Connection) -> bool:
 			large_table_change = True
 		if "event_team_a_ingame_side" not in cols:
 			conn.execute("ALTER TABLE matches ADD COLUMN event_team_a_ingame_side INTEGER")
-		if "match_vod" not in cols:
-			conn.execute("ALTER TABLE matches ADD COLUMN match_vod TEXT")
-		if "event_region" not in cols:
-			conn.execute("ALTER TABLE matches ADD COLUMN event_region TEXT")
+			large_table_change = True
 		conn.commit()
 	except Exception:
 		pass
@@ -838,6 +835,7 @@ async def db_init_async(conn: asqlite.Connection) -> bool:
 			large_table_change = True
 		if "event_team_a_ingame_side" not in cols:
 			await conn.execute("ALTER TABLE matches ADD COLUMN event_team_a_ingame_side INTEGER")
+			large_table_change = True
 		await conn.commit()
 	except Exception:
 		pass

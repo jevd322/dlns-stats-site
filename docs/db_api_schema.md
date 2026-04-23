@@ -179,6 +179,12 @@ Each match contains:
 | `match_outcome` | integer or null |
 | `game_mode` | integer or null |
 | `match_mode` | integer or null |
+| `event_title` | string or null |
+| `event_week` | integer or null |
+| `event_team_a` | string or null |
+| `event_team_b` | string or null |
+| `event_game` | string or null |
+| `event_team_a_ingame_side` | integer or null |
 | `start_time` | string or null |
 | `created_at` | string or null |
 
@@ -244,6 +250,10 @@ Response:
 | `winning_team` | integer or null |
 | `event_title` | string or null |
 | `event_week` | integer or null |
+| `event_team_a` | string or null |
+| `event_team_b` | string or null |
+| `event_game` | string or null |
+| `event_team_a_ingame_side` | integer or null |
 | `previous_match_id` | integer or null |
 | `next_match_id` | integer or null |
 
