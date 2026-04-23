@@ -1,9 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { VoHub } from '../main.jsx'
+import { VoHub } from '../pages/vo.jsx'
+import { ErrorBoundary } from '../components/ErrorBoundary.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <VoHub />
+    <ErrorBoundary>
+      <VoHub />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

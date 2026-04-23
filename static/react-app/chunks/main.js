@@ -1,1 +1,0 @@
-import{i as e,n as t,r as n,t as r}from"./jsx-runtime.js";import{t as i}from"./App.js";var a=e(n(),1),o=e(t(),1),s=r(),c=document.getElementById(`root`);c&&o.createRoot(c).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(i,{})}));
