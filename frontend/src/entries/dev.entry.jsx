@@ -1,9 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { SoundsDev } from '../main.jsx'
+import { SoundsDev } from '../pages/dev.jsx'
+import { ErrorBoundary } from '../components/ErrorBoundary.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <SoundsDev />
+    <ErrorBoundary>
+      <SoundsDev />
+    </ErrorBoundary>
   </React.StrictMode>,
 );
