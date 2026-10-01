@@ -25,7 +25,7 @@ It includes:
 
 - Backend: Python + Flask
 - Database: SQLite (default: data/dlns.sqlite3)
-- Frontend: Server-rendered templates + React bundles in static/react-app
+- Frontend: Server-rendered templates + React bundles in public/react-app
 - Caching/Compression: Flask-Caching + Flask-Compress
 
 ## Quick Start
@@ -33,7 +33,7 @@ It includes:
 ### 1) Install dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 Optional (for rebuilding React bundles):
@@ -86,21 +86,21 @@ the strip then just links to the channel. Create an app at
 ### 3) Ingest data
 
 ```bash
-python main.py -matchfile matches.json
+python backend/main.py -matchfile matches.json
 ```
 
 By default, the ingester only processes IDs not already marked as checked in `data/matches_status.json`.
 To re-run every ID from the JSON file, use:
 
 ```bash
-python main.py -matchfile matches.json -recheckall true
+python backend/main.py -matchfile matches.json -recheckall true
 ```
 
 The match ingester uses async workers with `asqlite` for DB writes.
 You can tune worker count (default `4`) with:
 
 ```bash
-python main.py -matchfile matches.json -concurrency 6
+python backend/main.py -matchfile matches.json -concurrency 6
 ```
 
 The match input file is JSON and supports event grouping by week:
@@ -117,12 +117,14 @@ The match input file is JSON and supports event grouping by week:
 ### 4) Run the web app
 
 ```bash
-python main_web.py
+python run.py
 ```
 
 Default local URL:
 
 http://localhost:5050
+
+For auto-reload and debug output, use `python run_debug.py`. Production servers (Waitress, Gunicorn, etc.) should load `wsgi:app`.
 
 ## Frontend Build (React)
 
@@ -138,13 +140,21 @@ Use this after changing files in frontend/src.
 ## Project Layout
 
 ```text
-main.py                 Data ingestion/processing
-main_web.py             Flask app factory and route wiring
-blueprints/             Feature blueprints (db, auth, stats, interviews, etc.)
-templates/              Server-rendered HTML templates
-static/                 Static files and built React bundles
-public/                 Public static files and built React bundles
+run.py                  Web app entry point (port 5050)
+run_debug.py            Debug entry point with auto-reload
+wsgi.py                 WSGI entry point for production servers
+backend/
+  main.py               Data ingestion/processing
+  requirements.txt      Python dependencies
+  app/main_web.py       Flask app factory and route wiring
+  app/blueprints/       Feature blueprints (db, auth, stats, admin, etc.)
+  app/utils/            Shared helpers
+  tests/                Backend tests
 frontend/               React source and Vite config
+templates/              Server-rendered HTML templates
+static/                 Static files (icons, CSS, mods)
+public/                 Public assets and built React bundles (public/react-app)
+scripts/                Helper scripts (start, build, DB update)
 data/                   SQLite database and runtime data files
 docs/                   Project docs (schema notes, etc.)
 ```
